@@ -1,5 +1,4 @@
-# StreamX - Real-time Polling PlatformThis is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
-
+# StreamX - Real-time Polling Platform
 
 
 StreamX is a production-grade real-time polling and survey platform built with Next.js 15, Appwrite Cloud, and modern UI components. Create engaging polls in seconds, share with QR codes, and watch responses flow in live.## Getting Started
@@ -10,7 +9,7 @@ StreamX is a production-grade real-time polling and survey platform built with N
 
 
 
-### Core Features (MVP)```bash
+### Core Features (MVP)
 
 - ✅ **60-Second Poll Creation** - Create beautiful polls with multiple question typesnpm run dev
 
@@ -219,24 +218,6 @@ streamx/
 1. Scan QR code or visit link
 2. Answer questions
 3. Submit & view results (if enabled)
-
-## 🤝 Contributing
-
-PRs welcome! Please:
-1. Fork repository
-2. Create feature branch
-3. Commit changes
-4. Open Pull Request
-
-## 📄 License
-
-MIT License
-
-## 🆘 Support
-
-- GitHub Issues for bugs/questions
-- Documentation: Check `/docs/streamx-PRD-Complete.md`
-- Appwrite Docs: [appwrite.io/docs](https://appwrite.io/docs)
 
 ---
 
