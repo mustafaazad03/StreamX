@@ -5,6 +5,9 @@ import { ID, Query } from 'appwrite';
 import QRCode from 'qrcode';
 
 export class PollService {
+  private pollCache: Map<string, { poll: Poll; timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 30000; // 30 seconds
+
   // Create a new poll
   async createPoll(userId: string, data: CreatePollData): Promise<Poll> {
     try {
@@ -43,31 +46,41 @@ export class PollService {
       // Create session for the poll
       await this.createSession(pollId);
 
-      return this.transformPollDocument(response);
+      const poll = this.transformPollDocument(response);
+      this.pollCache.set(pollId, { poll, timestamp: Date.now() });
+      return poll;
     } catch (error) {
       console.error('Error creating poll:', error);
       throw error;
     }
   }
 
-  // Get poll by ID
+  // Get poll by ID with caching
   async getPoll(pollId: string): Promise<Poll> {
     try {
+      // Check cache first
+      const cached = this.pollCache.get(pollId);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        return cached.poll;
+      }
+
       const response = await databases.getDocument(
         DATABASE_ID,
         POLLS_COLLECTION_ID,
         pollId
       );
 
-      // Increment view count
-      await databases.updateDocument(
+      // Increment view count asynchronously (don't wait)
+      databases.updateDocument(
         DATABASE_ID,
         POLLS_COLLECTION_ID,
         pollId,
         { viewCount: (response.viewCount || 0) + 1 }
-      );
+      ).catch(err => console.error('Failed to update view count:', err));
 
-      return this.transformPollDocument(response);
+      const poll = this.transformPollDocument(response);
+      this.pollCache.set(pollId, { poll, timestamp: Date.now() });
+      return poll;
     } catch (error) {
       console.error('Error getting poll:', error);
       throw error;
@@ -113,7 +126,10 @@ export class PollService {
         updateData
       );
 
-      return this.transformPollDocument(response);
+      const poll = this.transformPollDocument(response);
+      // Update cache
+      this.pollCache.set(pollId, { poll, timestamp: Date.now() });
+      return poll;
     } catch (error) {
       console.error('Error updating poll:', error);
       throw error;
@@ -124,6 +140,8 @@ export class PollService {
   async deletePoll(pollId: string): Promise<void> {
     try {
       await databases.deleteDocument(DATABASE_ID, POLLS_COLLECTION_ID, pollId);
+      // Remove from cache
+      this.pollCache.delete(pollId);
     } catch (error) {
       console.error('Error deleting poll:', error);
       throw error;

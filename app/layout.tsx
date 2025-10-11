@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { RealtimeProvider } from "@/contexts/RealtimeContext";
 import { Toaster } from "@/components/ui/sonner";
+import { NetworkStatus } from "@/components/NetworkStatus";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,6 +35,7 @@ export default function RootLayout({
           <RealtimeProvider>
             {children}
             <Toaster />
+            <NetworkStatus />
           </RealtimeProvider>
         </AuthProvider>
       </body>

@@ -53,8 +53,23 @@ export class AuthService {
   // Anonymous Session for Poll Participants
   async createAnonymousSession(): Promise<Models.Session> {
     try {
+      // First check if there's already an active session
+      const existingSession = await this.getCurrentSession();
+      if (existingSession) {
+        // If session already exists, return it
+        return existingSession;
+      }
+      
+      // Only create a new anonymous session if none exists
       return await account.createAnonymousSession();
-    } catch (error) {
+    } catch (error: any) {
+      // If error is about existing session, try to get current session
+      if (error.code === 401 || error.type === 'user_session_already_exists') {
+        const session = await this.getCurrentSession();
+        if (session) {
+          return session;
+        }
+      }
       console.error('Error creating anonymous session:', error);
       throw error;
     }

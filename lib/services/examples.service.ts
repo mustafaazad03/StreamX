@@ -135,69 +135,74 @@ Make each prompt:
 
 Example format: "Create a [type] for [audience] with questions about [topics]"`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://streamx.appwrite.network',
-        'X-Title': 'StreamX Examples Generator',
-      },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-3b-instruct:free',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-          {
-            role: 'user',
-            content: 'Generate 6 diverse poll creation prompt examples.',
-          },
-        ],
-        temperature: 0.9, // Higher temperature for more variety
-        max_tokens: 800,
-      }),
-    });
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://streamx.appwrite.network',
+          'X-Title': 'StreamX Examples Generator',
+        },
+        body: JSON.stringify({
+          model: 'meta-llama/llama-3.2-3b-instruct:free',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: 'Generate 6 diverse poll creation prompt examples.',
+            },
+          ],
+          temperature: 0.9, // Higher temperature for more variety
+          max_tokens: 800,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('No content generated');
+      }
+
+      // Parse the response
+      let cleanContent = content.trim();
+      if (cleanContent.startsWith('```json')) {
+        cleanContent = cleanContent.replace(/^```json\n/, '').replace(/\n```$/, '');
+      } else if (cleanContent.startsWith('```')) {
+        cleanContent = cleanContent.replace(/^```\n/, '').replace(/\n```$/, '');
+      }
+
+      const parsed = JSON.parse(cleanContent);
+
+      if (!parsed.examples || !Array.isArray(parsed.examples)) {
+        throw new Error('Invalid response structure');
+      }
+
+      // Add timestamp to each example
+      const examples: ExamplePrompt[] = parsed.examples.map((ex: { text: string; category: string }) => ({
+        text: ex.text,
+        category: ex.category,
+        generatedAt: Date.now(),
+      }));
+
+      // Validate we have enough examples
+      if (examples.length < 3) {
+        throw new Error('Not enough examples generated');
+      }
+
+      return examples.slice(0, 6); // Return max 6 examples
+    } catch (error) {
+      console.error('Error generating examples:', error);
+      throw error;
     }
-
-    const data = await response.json();
-    const content = data.choices[0]?.message?.content;
-
-    if (!content) {
-      throw new Error('No content generated');
-    }
-
-    // Parse the response
-    let cleanContent = content.trim();
-    if (cleanContent.startsWith('```json')) {
-      cleanContent = cleanContent.replace(/^```json\n/, '').replace(/\n```$/, '');
-    } else if (cleanContent.startsWith('```')) {
-      cleanContent = cleanContent.replace(/^```\n/, '').replace(/\n```$/, '');
-    }
-
-    const parsed = JSON.parse(cleanContent);
-
-    if (!parsed.examples || !Array.isArray(parsed.examples)) {
-      throw new Error('Invalid response structure');
-    }
-
-    // Add timestamp to each example
-    const examples: ExamplePrompt[] = parsed.examples.map((ex: { text: string; category: string }) => ({
-      text: ex.text,
-      category: ex.category,
-      generatedAt: Date.now(),
-    }));
-
-    // Validate we have enough examples
-    if (examples.length < 3) {
-      throw new Error('Not enough examples generated');
-    }
-
-    return examples.slice(0, 6); // Return max 6 examples
   }
 
   /**

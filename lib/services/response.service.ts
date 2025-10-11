@@ -4,6 +4,9 @@ import { Response, SubmitResponseData, Answer } from '@/lib/types';
 import { ID, Query } from 'appwrite';
 
 export class ResponseService {
+  private responseCache: Map<string, { responses: Response[]; timestamp: number }> = new Map();
+  private readonly CACHE_DURATION = 10000; // 10 seconds for responses
+
   // Submit a poll response
   async submitResponse(data: SubmitResponseData, participantId: string): Promise<Response> {
     try {
@@ -29,8 +32,13 @@ export class ResponseService {
         responseData
       );
 
-      // Update poll response count
-      await this.updatePollResponseCount(data.pollId);
+      // Update poll response count asynchronously
+      this.updatePollResponseCount(data.pollId).catch(err => 
+        console.error('Failed to update response count:', err)
+      );
+
+      // Clear cache for this poll
+      this.responseCache.delete(data.pollId);
 
       return this.transformResponseDocument(response);
     } catch (error) {
@@ -39,9 +47,15 @@ export class ResponseService {
     }
   }
 
-  // Get all responses for a poll
+  // Get all responses for a poll with caching
   async getPollResponses(pollId: string, limit = 1000): Promise<Response[]> {
     try {
+      // Check cache
+      const cached = this.responseCache.get(pollId);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        return cached.responses;
+      }
+
       const response = await databases.listDocuments(
         DATABASE_ID,
         RESPONSES_COLLECTION_ID,
@@ -52,7 +66,12 @@ export class ResponseService {
         ]
       );
 
-      return response.documents.map(doc => this.transformResponseDocument(doc));
+      const responses = response.documents.map(doc => this.transformResponseDocument(doc));
+      
+      // Cache the responses
+      this.responseCache.set(pollId, { responses, timestamp: Date.now() });
+
+      return responses;
     } catch (error) {
       console.error('Error getting poll responses:', error);
       throw error;
@@ -99,7 +118,12 @@ export class ResponseService {
   async deleteResponse(responseId: string, pollId: string): Promise<void> {
     try {
       await databases.deleteDocument(DATABASE_ID, RESPONSES_COLLECTION_ID, responseId);
-      await this.updatePollResponseCount(pollId);
+      // Clear cache
+      this.responseCache.delete(pollId);
+      // Update count asynchronously
+      this.updatePollResponseCount(pollId).catch(err => 
+        console.error('Failed to update response count:', err)
+      );
     } catch (error) {
       console.error('Error deleting response:', error);
       throw error;

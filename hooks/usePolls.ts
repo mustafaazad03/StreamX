@@ -90,18 +90,31 @@ export function usePoll(pollId: string) {
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
-    fetchPoll();
-  }, [pollId]);
+    if (pollId) {
+      fetchPoll();
+    }
+  }, [pollId, retryAttempt]);
 
   const fetchPoll = async () => {
     try {
       setLoading(true);
+      setError(null);
       const fetchedPoll = await pollService.getPoll(pollId);
       setPoll(fetchedPoll);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch poll');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch poll';
+      setError(errorMessage);
+      console.error('Error fetching poll:', err);
+      
+      // Auto-retry logic for network issues
+      if (retryAttempt < 2) {
+        setTimeout(() => {
+          setRetryAttempt(prev => prev + 1);
+        }, 1000 * (retryAttempt + 1)); // Exponential backoff
+      }
     } finally {
       setLoading(false);
     }

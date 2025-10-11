@@ -38,11 +38,35 @@ export class AIService {
   private apiKey: string;
   private apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
   private model = 'meta-llama/llama-3.2-3b-instruct:free'; // Free model from OpenRouter
+  private readonly MAX_RETRIES = 3;
+  private readonly RETRY_DELAY = 1000;
 
   constructor() {
     this.apiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '';
     if (!this.apiKey) {
       console.warn('OpenRouter API key not found. AI features will be limited.');
+    }
+  }
+
+  private async fetchWithRetry(url: string, options: RequestInit, retries = 0): Promise<Response> {
+    try {
+      const response = await fetch(url, options);
+      
+      // If rate limited or server error, retry
+      if ((response.status === 429 || response.status >= 500) && retries < this.MAX_RETRIES) {
+        const delay = this.RETRY_DELAY * Math.pow(2, retries); // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.fetchWithRetry(url, options, retries + 1);
+      }
+      
+      return response;
+    } catch (error) {
+      if (retries < this.MAX_RETRIES) {
+        const delay = this.RETRY_DELAY * Math.pow(2, retries);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.fetchWithRetry(url, options, retries + 1);
+      }
+      throw error;
     }
   }
 
@@ -120,7 +144,7 @@ Remember: Output ONLY the JSON structure, nothing else.`;
     ];
 
     try {
-      const response = await fetch(this.apiUrl, {
+      const response = await this.fetchWithRetry(this.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -160,6 +184,9 @@ Remember: Output ONLY the JSON structure, nothing else.`;
       return parsedPoll;
     } catch (error) {
       console.error('Error generating poll with AI:', error);
+      if (error instanceof Error) {
+        throw new Error(`Failed to generate poll: ${error.message}`);
+      }
       throw error;
     }
   }
@@ -246,7 +273,7 @@ Remember: Output ONLY the JSON structure, nothing else.`;
     ];
 
     try {
-      const response = await fetch(this.apiUrl, {
+      const response = await this.fetchWithRetry(this.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
@@ -263,7 +290,8 @@ Remember: Output ONLY the JSON structure, nothing else.`;
       });
 
       if (!response.ok) {
-        throw new Error(`OpenRouter API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const data: OpenRouterResponse = await response.json();
@@ -278,10 +306,9 @@ Remember: Output ONLY the JSON structure, nothing else.`;
 
       return parsedPoll;
     } catch (error) {
+      console.error('Error refining poll with AI:', error);
       if (error instanceof Error) {
-        console.error('Error refining poll with AI:', error.message);
-      } else {
-        console.error('Error refining poll with AI:', error);
+        throw new Error(`Failed to refine poll: ${error.message}`);
       }
       throw error;
     }

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, GripVertical, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { responseService } from '@/lib/services/response.service';
 import { Answer } from '@/lib/types';
@@ -21,7 +21,7 @@ export default function PollParticipationPage() {
   const params = useParams();
   const router = useRouter();
   const pollId = params.id as string;
-  const { poll, loading: pollLoading } = usePoll(pollId);
+  const { poll, loading: pollLoading, error: pollError } = usePoll(pollId);
   const { session, createAnonymousSession } = useAuth();
   const [answers, setAnswers] = useState<{ [key: string]: string | string[] | number }>({});
   const [participantName, setParticipantName] = useState('');
@@ -30,12 +30,22 @@ export default function PollParticipationPage() {
   const [submitted, setSubmitted] = useState(false);
   const [hasResponded, setHasResponded] = useState(false);
   const [sessionInitialized, setSessionInitialized] = useState(false);
+  const [sessionError, setSessionError] = useState(false);
+  const [draggedItems, setDraggedItems] = useState<{ [key: string]: string[] }>({});
 
   useEffect(() => {
     const initSession = async () => {
       if (!session && !sessionInitialized) {
         setSessionInitialized(true);
-        await createAnonymousSession();
+        try {
+          await createAnonymousSession();
+          setSessionError(false);
+        } catch (error) {
+          console.error('Failed to create anonymous session:', error);
+          setSessionError(true);
+        }
+      } else if (session) {
+        setSessionError(false);
       }
     };
     initSession();
@@ -44,15 +54,47 @@ export default function PollParticipationPage() {
   useEffect(() => {
     const checkResponse = async () => {
       if (session && poll && !poll.settings.allowMultipleResponses) {
-        const responded = await responseService.hasParticipantResponded(
-          pollId,
-          session.userId
-        );
-        setHasResponded(responded);
+        try {
+          const responded = await responseService.hasParticipantResponded(
+            pollId,
+            session.userId
+          );
+          setHasResponded(responded);
+        } catch (error) {
+          console.error('Failed to check response status:', error);
+        }
       }
     };
     checkResponse();
   }, [session, poll, pollId]);
+
+  // Initialize ranking questions
+  useEffect(() => {
+    if (poll) {
+      const rankingQuestions = poll.questions.filter(q => q.type === 'ranking');
+      const initialDraggedItems: { [key: string]: string[] } = {};
+      
+      rankingQuestions.forEach(q => {
+        if (q.options) {
+          initialDraggedItems[q.id] = [...q.options];
+        }
+      });
+      
+      setDraggedItems(initialDraggedItems);
+    }
+  }, [poll]);
+
+  const handleRankingChange = (questionId: string, items: string[]) => {
+    setDraggedItems(prev => ({ ...prev, [questionId]: items }));
+    setAnswers({ ...answers, [questionId]: items });
+  };
+
+  const moveRankingItem = (questionId: string, fromIndex: number, toIndex: number) => {
+    const items = [...(draggedItems[questionId] || [])];
+    const [movedItem] = items.splice(fromIndex, 1);
+    items.splice(toIndex, 0, movedItem);
+    handleRankingChange(questionId, items);
+  };
 
   const handleAnswerChange = (questionId: string, value: string | string[] | number) => {
     setAnswers({ ...answers, [questionId]: value });
@@ -74,7 +116,17 @@ export default function PollParticipationPage() {
     e.preventDefault();
 
     if (!session) {
-      toast.error('Please wait while we set up your session');
+      if (!sessionError) {
+        toast.error('Please wait while we set up your session');
+        // Try to create session again
+        try {
+          await createAnonymousSession();
+        } catch (error) {
+          toast.error('Failed to initialize session. Please refresh the page.');
+        }
+      } else {
+        toast.error('Session error. Please refresh the page and try again.');
+      }
       return;
     }
 
@@ -119,6 +171,7 @@ export default function PollParticipationPage() {
       setSubmitted(true);
       toast.success('Response submitted successfully!');
     } catch (error) {
+      console.error('Failed to submit response:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to submit response');
     } finally {
       setSubmitting(false);
@@ -141,20 +194,27 @@ export default function PollParticipationPage() {
     );
   }
 
-  if (!poll || !poll.isActive) {
+  if (!poll || !poll.isActive || pollError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-12 text-center">
             <Sparkles className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">
-              {!poll ? 'Poll not found' : 'Poll is currently closed'}
+              {pollError ? 'Error loading poll' : !poll ? 'Poll not found' : 'Poll is currently closed'}
             </h3>
-            <p className="text-gray-600">
-              {!poll
+            <p className="text-gray-600 mb-4">
+              {pollError 
+                ? 'There was an error loading this poll. Please try again.'
+                : !poll
                 ? 'This poll does not exist or has been removed'
                 : 'This poll is not accepting responses at the moment'}
             </p>
+            {pollError && (
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Try Again
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -372,16 +432,94 @@ export default function PollParticipationPage() {
                     rows={4}
                   />
                 )}
+
+                {question.type === 'ranking' && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Drag items to rank them from most to least preferred (top = most preferred)
+                    </p>
+                    {(draggedItems[question.id] || question.options || []).map((option, index) => (
+                      <div
+                        key={option}
+                        className="flex items-center gap-3 p-3 bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-move"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/html', index.toString());
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const fromIndex = parseInt(e.dataTransfer.getData('text/html'));
+                          moveRankingItem(question.id, fromIndex, index);
+                        }}
+                      >
+                        <GripVertical className="h-5 w-5 text-gray-400" />
+                        <span className="flex items-center justify-center w-8 h-8 bg-purple-100 text-purple-700 rounded-full font-semibold text-sm">
+                          {index + 1}
+                        </span>
+                        <span className="flex-1">{option}</span>
+                        <div className="flex gap-2">
+                          {index > 0 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveRankingItem(question.id, index, index - 1)}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↑
+                            </Button>
+                          )}
+                          {index < (draggedItems[question.id]?.length || 0) - 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveRankingItem(question.id, index, index + 1)}
+                              className="h-8 w-8 p-0"
+                            >
+                              ↓
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
 
           {/* Submit Button */}
           <div className="flex justify-center">
-            <Button type="submit" size="lg" disabled={submitting} className="w-full md:w-auto">
-              {submitting ? 'Submitting...' : 'Submit Response'}
+            <Button 
+              type="submit" 
+              size="lg" 
+              disabled={submitting || !session} 
+              className="w-full md:w-auto"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Submitting...
+                </>
+              ) : !session ? (
+                'Setting up session...'
+              ) : (
+                'Submit Response'
+              )}
             </Button>
           </div>
+          
+          {!session && (
+            <p className="text-center text-sm text-gray-500 mt-2">
+              Initializing your session, please wait...
+            </p>
+          )}
         </form>
 
         {/* Powered by */}

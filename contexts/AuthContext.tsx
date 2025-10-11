@@ -106,13 +106,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session) {
         return;
       }
+      
+      // Check if there's already a session in Appwrite
+      const existingSession = await authService.getCurrentSession();
+      if (existingSession) {
+        setSession(existingSession);
+        return;
+      }
+      
+      // Create new anonymous session
       const newSession = await authService.createAnonymousSession();
       setSession(newSession);
     } catch (error: any) {
-      // Ignore error if session already exists
-      if (error.code !== 401 && error.type !== 'user_session_already_exists') {
-        console.error('Error creating anonymous session:', error);
+      // If error is about existing session, try to get it
+      if (error.code === 401 || error.type === 'user_session_already_exists') {
+        try {
+          const existingSession = await authService.getCurrentSession();
+          if (existingSession) {
+            setSession(existingSession);
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to get existing session:', e);
+        }
       }
+      // Don't throw error for session creation in poll participation
+      console.error('Error creating anonymous session:', error);
     }
   };
 

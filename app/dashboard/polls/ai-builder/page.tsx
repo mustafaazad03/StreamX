@@ -104,6 +104,8 @@ export default function AIPollBuilderPage() {
   const generatePollFromPrompt = useCallback(async (userPrompt: string) => {
     if (!userPrompt.trim() || isGenerating) return;
 
+    const currentPoll = generatedPoll;
+    
     // Add user message to conversation
     setConversationHistory((prev) => [
       ...prev,
@@ -115,9 +117,9 @@ export default function AIPollBuilderPage() {
     try {
       let result: GeneratedPoll;
 
-      if (generatedPoll) {
+      if (currentPoll) {
         // Refine existing poll
-        result = await aiService.refinePoll(generatedPoll, userPrompt);
+        result = await aiService.refinePoll(currentPoll, userPrompt);
         toast.success("Poll refined successfully!");
       } else {
         // Generate new poll
@@ -132,7 +134,7 @@ export default function AIPollBuilderPage() {
         ...prev,
         {
           role: "assistant",
-          content: `I've ${generatedPoll ? "refined" : "created"} a poll titled "${result.title}" with ${result.questions.length} questions.`,
+          content: `I've ${currentPoll ? "refined" : "created"} a poll titled "${result.title}" with ${result.questions.length} questions.`,
         },
       ]);
     } catch (error) {
@@ -145,16 +147,15 @@ export default function AIPollBuilderPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [generatedPoll, isGenerating]);
+  }, [isGenerating]);
 
   // Handle example click - populate and submit
   const handleExampleClick = useCallback((exampleText: string) => {
+    if (isGenerating) return; // Prevent multiple clicks
     setPrompt(exampleText);
-    // Trigger submission after setting prompt
-    setTimeout(() => {
-      generatePollFromPrompt(exampleText);
-    }, 100);
-  }, [generatePollFromPrompt]);
+    // Directly call generate with the text
+    generatePollFromPrompt(exampleText);
+  }, [isGenerating]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
