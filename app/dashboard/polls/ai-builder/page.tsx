@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
 import { MultiStepLoader } from "@/components/ui/multi-step-loader";
@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { aiService } from "@/lib/services/ai.service";
 import { pollService } from "@/lib/services/poll.service";
+import { examplesService, ExamplePrompt } from "@/lib/services/examples.service";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, RefreshCw, Save, ArrowLeft, MessageSquare } from "lucide-react";
+import { Sparkles, RefreshCw, Save, ArrowLeft, MessageSquare, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Question } from "@/lib/types";
 
@@ -36,15 +37,18 @@ export default function AIPollBuilderPage() {
   const [conversationHistory, setConversationHistory] = useState<
     { role: "user" | "assistant"; content: string }[]
   >([]);
+  const [examples, setExamples] = useState<ExamplePrompt[]>([]);
+  const [loadingExamples, setLoadingExamples] = useState(true);
+  const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const placeholders = [
-    "Create a customer satisfaction survey for a restaurant",
-    "Build an employee engagement poll with 5 questions",
-    "Design a product feedback form for a mobile app",
-    "Make a event planning poll for a team outing",
-    "Generate a market research survey about coffee preferences",
-    "Create a training effectiveness assessment poll",
-  ];
+  // Placeholder examples for the input component
+  const placeholders = examples.length > 0 
+    ? examples.map(ex => ex.text)
+    : [
+        "Create a customer satisfaction survey for a restaurant",
+        "Build an employee engagement poll with 5 questions",
+        "Design a product feedback form for a mobile app",
+      ];
 
   const loadingStates = [
     { text: "Analyzing your request..." },
@@ -54,13 +58,52 @@ export default function AIPollBuilderPage() {
     { text: "Finalizing your poll..." },
   ];
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!prompt.trim() || isGenerating) return;
+  // Load examples on mount and set up auto-refresh
+  useEffect(() => {
+    loadExamples();
 
-    const userPrompt = prompt.trim();
-    setPrompt("");
-    
+    // Set up auto-refresh timer (every 2 hours)
+    const setupAutoRefresh = () => {
+      const status = examplesService.getCacheStatus();
+      if (status.expiresIn !== null && status.expiresIn > 0) {
+        // Set timer to refresh when cache expires
+        autoRefreshTimerRef.current = setTimeout(() => {
+          loadExamples(true);
+        }, status.expiresIn);
+      }
+    };
+
+    setupAutoRefresh();
+
+    return () => {
+      if (autoRefreshTimerRef.current) {
+        clearTimeout(autoRefreshTimerRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load examples from service
+  const loadExamples = useCallback(async (forceRefresh = false) => {
+    try {
+      setLoadingExamples(true);
+      const loadedExamples = forceRefresh 
+        ? await examplesService.refreshExamples()
+        : await examplesService.getExamples();
+      
+      setExamples(loadedExamples);
+    } catch (error) {
+      console.error("Failed to load examples:", error);
+      // Examples service will return fallback examples on error
+    } finally {
+      setLoadingExamples(false);
+    }
+  }, []);
+
+  // Generate poll from prompt
+  const generatePollFromPrompt = useCallback(async (userPrompt: string) => {
+    if (!userPrompt.trim() || isGenerating) return;
+
     // Add user message to conversation
     setConversationHistory((prev) => [
       ...prev,
@@ -102,6 +145,25 @@ export default function AIPollBuilderPage() {
     } finally {
       setIsGenerating(false);
     }
+  }, [generatedPoll, isGenerating]);
+
+  // Handle example click - populate and submit
+  const handleExampleClick = useCallback((exampleText: string) => {
+    setPrompt(exampleText);
+    // Trigger submission after setting prompt
+    setTimeout(() => {
+      generatePollFromPrompt(exampleText);
+    }, 100);
+  }, [generatePollFromPrompt]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!prompt.trim() || isGenerating) return;
+
+    const userPrompt = prompt.trim();
+    setPrompt("");
+    
+    await generatePollFromPrompt(userPrompt);
   };
 
   const handleSavePoll = async () => {
@@ -363,22 +425,57 @@ export default function AIPollBuilderPage() {
                 Simply describe what kind of poll you need, and our AI will generate a
                 professional survey with perfectly crafted questions.
               </p>
-              <div className="max-w-2xl mx-auto space-y-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Try these examples:
-                </p>
+              <div className="max-w-2xl mx-auto space-y-4">
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Try these examples:
+                  </p>
+                  {loadingExamples && (
+                    <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {placeholders.slice(0, 3).map((placeholder, index) => (
+                  {examples.slice(0, 3).map((example, index) => (
                     <Badge
                       key={index}
                       variant="secondary"
-                      className="cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900"
-                      onClick={() => setPrompt(placeholder)}
+                      className="cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
+                      onClick={() => handleExampleClick(example.text)}
                     >
-                      {placeholder}
+                      {example.text}
                     </Badge>
                   ))}
                 </div>
+                {examples.length > 3 && (
+                  <details className="mt-4">
+                    <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-purple-600 dark:hover:text-purple-400 text-center">
+                      Show {examples.length - 3} more examples
+                    </summary>
+                    <div className="flex flex-wrap gap-2 justify-center mt-3">
+                      {examples.slice(3).map((example, index) => (
+                        <Badge
+                          key={index + 3}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900 transition-colors"
+                          onClick={() => handleExampleClick(example.text)}
+                        >
+                          {example.text}
+                        </Badge>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {!loadingExamples && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => loadExamples(true)}
+                    className="mx-auto flex items-center gap-2 text-xs text-gray-500 hover:text-purple-600"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Refresh examples
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
