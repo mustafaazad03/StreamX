@@ -1,13 +1,7 @@
 # StreamX - Real-time Polling Platform
 
 
-StreamX is a production-grade real-time polling and survey platform built with Next.js 15, Appwrite Cloud, and modern UI components. Create engaging polls in seconds, share with QR codes, and watch responses flow in live.## Getting Started
-
-
-
-## ✨ FeaturesFirst, run the development server:
-
-
+StreamX is a production-grade real-time polling and survey platform built with Next.js 15, Appwrite Cloud, and modern UI components. Create engaging polls in seconds, share with QR codes, and watch responses flow in live.
 
 ### Core Features (MVP)
 
@@ -24,8 +18,6 @@ StreamX is a production-grade real-time polling and survey platform built with N
 - ✅ **Anonymous Participation** - No account required for participants# or
 
 - ✅ **Advanced Analytics** - Comprehensive insights and metricsbun dev
-
-```
 
 ### Tech Stack
 
@@ -59,10 +51,10 @@ git clone <your-repo-url>You can check out [the Next.js GitHub repository](https
 
 cd streamx
 
-bun install  # or npm install## Deploy on Vercel
+bun install  # or npm install
 
 ```
-
+## Deploy on Vercel
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 ### 2. Set Up Appwrite Cloud
