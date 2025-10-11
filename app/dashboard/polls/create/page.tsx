@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, GripVertical, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ArrowLeft, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { QuestionType, CreatePollData } from '@/lib/types';
 import Link from 'next/link';
@@ -144,14 +144,22 @@ export default function CreatePollPage() {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/dashboard">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Dashboard
+                </Link>
+              </Button>
+              <h1 className="text-2xl font-bold">Create New Poll</h1>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/polls/ai-builder">
+                <Sparkles className="h-4 w-4 mr-2" />
+                Try AI Builder
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold">Create New Poll</h1>
           </div>
         </div>
       </header>

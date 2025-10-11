@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, BarChart3, Settings, LogOut, Sparkles } from 'lucide-react';
+import { Plus, BarChart3, Settings, LogOut, Sparkles, Wand2 } from 'lucide-react';
 import { usePolls } from '@/hooks/usePolls';
 import { useUserStatistics } from '@/hooks/useAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -119,10 +119,20 @@ export default function DashboardPage() {
         {/* Actions */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold">Your Polls</h2>
-          <Button onClick={() => router.push('/dashboard/polls/create')}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create New Poll
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => router.push('/dashboard/polls/ai-builder')}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 border-0"
+            >
+              <Wand2 className="h-4 w-4 mr-2" />
+              AI Poll Builder
+            </Button>
+            <Button onClick={() => router.push('/dashboard/polls/create')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create New Poll
+            </Button>
+          </div>
         </div>
 
         {/* Polls List */}
@@ -147,10 +157,20 @@ export default function DashboardPage() {
                   <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No polls yet</h3>
                   <p className="text-gray-600 mb-4">Create your first poll to start engaging your audience</p>
-                  <Button onClick={() => router.push('/dashboard/polls/create')}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Poll
-                  </Button>
+                  <div className="flex gap-3 justify-center">
+                    <Button 
+                      variant="outline"
+                      onClick={() => router.push('/dashboard/polls/ai-builder')}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 border-0"
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Try AI Builder
+                    </Button>
+                    <Button onClick={() => router.push('/dashboard/polls/create')}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Manually
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
