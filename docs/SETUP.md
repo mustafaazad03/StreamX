@@ -242,7 +242,7 @@ NEXT_PUBLIC_APPWRITE_SESSIONS_COLLECTION_ID=sessions_collection_id
 
 NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID=your_bucket_id_here
 
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://streamx.appwrite.network
 NEXT_PUBLIC_APP_NAME=StreamX
 
 APPWRITE_API_KEY=your_api_key_here
@@ -262,7 +262,7 @@ bun dev
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000)
+Visit [https://streamx.appwrite.network](https://streamx.appwrite.network)
 
 ## ✅ Verify Setup
 

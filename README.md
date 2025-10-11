@@ -21,7 +21,7 @@ StreamX is a production-grade real-time polling and survey platform built with N
 
 ### Tech Stack
 
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSSOpen [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSSOpen [http://streamx.appwrite.network](http://streamx.appwrite.network) with your browser to see the result.
 
 - **Backend**: Appwrite Cloud (Auth, Databases, Storage, Realtime, Functions)
 
@@ -146,7 +146,7 @@ NEXT_PUBLIC_APPWRITE_RESPONSES_COLLECTION_ID=responses_id
 NEXT_PUBLIC_APPWRITE_SESSIONS_COLLECTION_ID=sessions_id
 NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID=bucket_id
 
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://streamx.appwrite.network
 NEXT_PUBLIC_APP_NAME=StreamX
 APPWRITE_API_KEY=your_api_key
 ```
@@ -155,7 +155,7 @@ APPWRITE_API_KEY=your_api_key
 ```bash
 bun dev  # or npm run dev
 ```
-Visit [http://localhost:3000](http://localhost:3000)
+Visit [http://streamx.appwrite.network](http://streamx.appwrite.network)
 
 ## 📁 Project Structure
 

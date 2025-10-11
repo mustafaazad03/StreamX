@@ -125,7 +125,7 @@ Remember: Output ONLY the JSON structure, nothing else.`;
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://streamx.appwrite.network',
           'X-Title': 'StreamX Poll Builder',
         },
         body: JSON.stringify({
@@ -251,7 +251,7 @@ Remember: Output ONLY the JSON structure, nothing else.`;
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://streamx.appwrite.network',
           'X-Title': 'StreamX Poll Builder',
         },
         body: JSON.stringify({

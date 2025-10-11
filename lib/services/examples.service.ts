@@ -140,7 +140,7 @@ Example format: "Create a [type] for [audience] with questions about [topics]"`;
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://streamx.appwrite.network',
         'X-Title': 'StreamX Examples Generator',
       },
       body: JSON.stringify({

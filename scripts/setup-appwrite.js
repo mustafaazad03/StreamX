@@ -33,7 +33,7 @@ async function main() {
   const sessionsCollectionId = await question('Sessions Collection ID: ');
   const bucketId = await question('Storage Bucket ID: ');
   const apiKey = await question('Appwrite API Key (optional, for server-side): ');
-  const appUrl = await question('App URL (default: http://localhost:3000): ') || 'http://localhost:3000';
+  const appUrl = await question('App URL (default: https://streamx.appwrite.network): ') || 'https://streamx.appwrite.network';
 
   const envContent = `# Appwrite Configuration
 NEXT_PUBLIC_APPWRITE_ENDPOINT=${endpoint}
@@ -65,7 +65,7 @@ APPWRITE_API_KEY=${apiKey}
   console.log('   1. Review .env.local file');
   console.log('   2. Make sure all Appwrite collections are created with correct permissions');
   console.log('   3. Run: bun dev (or npm run dev)');
-  console.log('   4. Visit: http://localhost:3000\n');
+  console.log('   4. Visit: https://streamx.appwrite.network\n');
 
   rl.close();
 }
