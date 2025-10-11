@@ -138,16 +138,16 @@ export class ResponseService {
   }
 
   // Get aggregated results for a poll
-  async getAggregatedResults(pollId: string): Promise<any> {
+  async getAggregatedResults(pollId: string): Promise<{ totalResponses: number; questionResults: unknown[]; responses: unknown[] }> {
     try {
       const responses = await this.getPollResponses(pollId);
       
       if (responses.length === 0) {
-        return { totalResponses: 0, questionResults: [] };
+        return { totalResponses: 0, questionResults: [], responses: [] };
       }
 
       // Group responses by question
-      const questionResults: { [questionId: string]: any } = {};
+      const questionResults: Record<string, { questionId: string; questionType: string; responses: Record<string, number>; totalResponses: number; textResponses?: string[] }> = {};
 
       responses.forEach(response => {
         response.answers.forEach(answer => {
@@ -178,7 +178,7 @@ export class ResponseService {
             if (!questionResults[answer.questionId].textResponses) {
               questionResults[answer.questionId].textResponses = [];
             }
-            questionResults[answer.questionId].textResponses.push(answer.value);
+            questionResults[answer.questionId].textResponses?.push(String(answer.value));
           }
         });
       });
@@ -240,7 +240,7 @@ export class ResponseService {
   }
 
   // Transform document to Response type
-  private transformResponseDocument(doc: any): Response {
+  private transformResponseDocument(doc: Record<string, unknown>): Response {
     return {
       ...doc,
       answers: typeof doc.answers === 'string' ? JSON.parse(doc.answers) : doc.answers,
@@ -248,10 +248,7 @@ export class ResponseService {
   }
 
   // Get responses in real-time
-  subscribeToResponses(pollId: string, callback: (response: Response) => void): () => void {
-    // This will be implemented with Appwrite Realtime in the component
-    return () => {};
-  }
+  // subscribeToResponses will be implemented with Appwrite Realtime when needed
 }
 
 export const responseService = new ResponseService();

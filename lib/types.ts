@@ -14,8 +14,8 @@ export interface User extends Models.Document {
   email: string;
   name: string;
   subscription: SubscriptionTier;
-  createdAt: string;
-  lastActive: string;
+  createdAt?: string;
+  lastActive?: string;
   pollsCreated?: number;
   totalParticipants?: number;
 }
@@ -55,10 +55,7 @@ export interface Poll extends Models.Document {
   questions: Question[];
   settings: PollSettings;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
   expiresAt?: string;
-  qrCodeUrl?: string;
   shareableLink?: string;
   responseCount?: number;
   viewCount?: number;
@@ -77,7 +74,7 @@ export interface Response extends Models.Document {
   participantEmail?: string;
   participantName?: string;
   answers: Answer[];
-  submittedAt: string;
+  submittedAt?: string;
   ipAddress?: string;
   userAgent?: string;
 }
@@ -86,7 +83,7 @@ export interface Session extends Models.Document {
   pollId: string;
   isActive: boolean;
   participantCount: number;
-  startedAt: string;
+  startedAt?: string;
   endedAt?: string;
 }
 

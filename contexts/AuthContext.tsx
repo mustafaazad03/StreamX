@@ -102,10 +102,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const createAnonymousSession = async () => {
     try {
+      // Check if session already exists
+      if (session) {
+        return;
+      }
       const newSession = await authService.createAnonymousSession();
       setSession(newSession);
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      // Ignore error if session already exists
+      if (error.code !== 401 && error.type !== 'user_session_already_exists') {
+        console.error('Error creating anonymous session:', error);
+      }
     }
   };
 

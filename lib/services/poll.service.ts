@@ -12,16 +12,6 @@ export class PollService {
       
       // Generate shareable link
       const shareableLink = `${process.env.NEXT_PUBLIC_APP_URL}/poll/${pollId}`;
-      
-      // Generate QR code
-      const qrCodeDataUrl = await QRCode.toDataURL(shareableLink, {
-        width: 500,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF',
-        },
-      });
 
       // Add IDs to questions
       const questionsWithIds = data.questions.map((q, index) => ({
@@ -38,8 +28,6 @@ export class PollService {
         settings: JSON.stringify(data.settings),
         isActive: true,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        qrCodeUrl: qrCodeDataUrl,
         shareableLink,
         responseCount: 0,
         viewCount: 0,
@@ -94,7 +82,7 @@ export class PollService {
         POLLS_COLLECTION_ID,
         [
           Query.equal('creatorId', userId),
-          Query.orderDesc('createdAt'),
+          Query.orderDesc('$createdAt'),
           Query.limit(limit),
           Query.offset(offset),
         ]
@@ -110,9 +98,7 @@ export class PollService {
   // Update poll
   async updatePoll(pollId: string, data: UpdatePollData): Promise<Poll> {
     try {
-      const updateData: any = {
-        updatedAt: new Date().toISOString(),
-      };
+      const updateData: Record<string, unknown> = {};
 
       if (data.title) updateData.title = data.title;
       if (data.description !== undefined) updateData.description = data.description;
@@ -179,7 +165,7 @@ export class PollService {
       const response = await databases.listDocuments(
         DATABASE_ID,
         SESSIONS_COLLECTION_ID,
-        [Query.equal('pollId', pollId), Query.orderDesc('startedAt'), Query.limit(1)]
+        [Query.equal('pollId', pollId), Query.orderDesc('$createdAt'), Query.limit(1)]
       );
 
       return response.documents.length > 0 ? (response.documents[0] as unknown as Session) : null;
@@ -203,8 +189,8 @@ export class PollService {
     }
   }
 
-  // Regenerate QR code
-  async regenerateQRCode(pollId: string): Promise<string> {
+  // Generate QR code for a poll (on-demand)
+  async generateQRCode(pollId: string): Promise<string> {
     try {
       const shareableLink = `${process.env.NEXT_PUBLIC_APP_URL}/poll/${pollId}`;
       
@@ -217,22 +203,15 @@ export class PollService {
         },
       });
 
-      await databases.updateDocument(
-        DATABASE_ID,
-        POLLS_COLLECTION_ID,
-        pollId,
-        { qrCodeUrl: qrCodeDataUrl }
-      );
-
       return qrCodeDataUrl;
     } catch (error) {
-      console.error('Error regenerating QR code:', error);
+      console.error('Error generating QR code:', error);
       throw error;
     }
   }
 
   // Transform document to Poll type
-  private transformPollDocument(doc: any): Poll {
+  private transformPollDocument(doc: Record<string, unknown>): Poll {
     return {
       ...doc,
       questions: typeof doc.questions === 'string' ? JSON.parse(doc.questions) : doc.questions,
@@ -249,7 +228,7 @@ export class PollService {
         [
           Query.equal('creatorId', userId),
           Query.search('title', searchTerm),
-          Query.orderDesc('createdAt'),
+          Query.orderDesc('$createdAt'),
         ]
       );
 

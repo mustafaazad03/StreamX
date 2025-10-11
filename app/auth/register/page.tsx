@@ -37,8 +37,8 @@ export default function RegisterPage() {
     try {
       await register(email, password, name);
       toast.success('Account created successfully!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create account');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to register');
     } finally {
       setLoading(false);
     }

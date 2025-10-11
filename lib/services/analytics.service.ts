@@ -1,11 +1,29 @@
 // Analytics service
 import { responseService } from './response.service';
 import { pollService } from './poll.service';
-import { PollAnalytics } from '@/lib/types';
+
+interface QuestionAnalyticsResult {
+  questionId: string;
+  questionText: string;
+  responses: Record<string, number>;
+}
+
+interface AggregatedQuestionResult {
+  questionId: string;
+  questionText: string;
+  responses: Record<string, number>;
+}
 
 export class AnalyticsService {
   // Get comprehensive analytics for a poll
-  async getPollAnalytics(pollId: string): Promise<PollAnalytics> {
+  async getQuestionAnalytics(pollId: string): Promise<{
+    pollId: string;
+    totalResponses: number;
+    completionRate: number;
+    averageTimeToComplete: number;
+    responsesByQuestion: QuestionAnalyticsResult[];
+    participationOverTime: { timestamp: string; count: number }[];
+  }> {
     try {
       const poll = await pollService.getPoll(pollId);
       const responses = await responseService.getPollResponses(pollId);
@@ -18,8 +36,8 @@ export class AnalyticsService {
 
       // Calculate average time to complete
       const timeToComplete = responses.map(r => {
-        const submitted = new Date(r.submittedAt).getTime();
-        const firstAnswer = new Date(r.answers[0]?.timestamp || r.submittedAt).getTime();
+        const submitted = new Date(r.submittedAt || Date.now()).getTime();
+        const firstAnswer = new Date(r.answers[0]?.timestamp || r.submittedAt || Date.now()).getTime();
         return submitted - firstAnswer;
       });
 
@@ -32,8 +50,8 @@ export class AnalyticsService {
 
       // Response by question
       const responsesByQuestion = poll.questions.map(question => {
-        const questionResult = aggregated.questionResults.find(
-          (qr: any) => qr.questionId === question.id
+        const questionResult = (aggregated.questionResults as AggregatedQuestionResult[]).find(
+          (qr) => qr.questionId === question.id
         );
 
         return {
@@ -58,11 +76,11 @@ export class AnalyticsService {
   }
 
   // Group responses by time intervals
-  private groupResponsesByTime(responses: any[]): { timestamp: string; count: number }[] {
+  private groupResponsesByTime(responses: Array<{ submittedAt?: string; $createdAt?: string }>): { timestamp: string; count: number }[] {
     const grouped: { [key: string]: number } = {};
 
     responses.forEach(response => {
-      const date = new Date(response.submittedAt);
+      const date = new Date(response.submittedAt || response.$createdAt || Date.now());
       const hour = new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours());
       const key = hour.toISOString();
 
@@ -132,7 +150,7 @@ export class AnalyticsService {
       const abandonmentRate = 100 - analytics.completionRate;
 
       const peakResponseTime = analytics.participationOverTime.length > 0
-        ? analytics.participationOverTime.reduce((prev, current) =>
+        ? analytics.participationOverTime.reduce((prev: { timestamp: string; count: number }, current: { timestamp: string; count: number }) =>
             current.count > prev.count ? current : prev
           ).timestamp
         : '';
@@ -147,6 +165,11 @@ export class AnalyticsService {
       console.error('Error getting engagement metrics:', error);
       throw error;
     }
+  }
+
+  // Get poll analytics (alias for getQuestionAnalytics)
+  async getPollAnalytics(pollId: string) {
+    return this.getQuestionAnalytics(pollId);
   }
 }
 

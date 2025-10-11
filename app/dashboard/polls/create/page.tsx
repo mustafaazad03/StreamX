@@ -58,7 +58,7 @@ export default function CreatePollPage() {
     }
   };
 
-  const updateQuestion = (index: number, field: keyof QuestionInput, value: any) => {
+  const updateQuestion = (index: number, field: keyof QuestionInput, value: string | boolean | number | QuestionType) => {
     const updated = [...questions];
     updated[index] = { ...updated[index], [field]: value };
     setQuestions(updated);
@@ -102,8 +102,9 @@ export default function CreatePollPage() {
       return;
     }
 
+    // Validate options only for multiple-choice questions (yes-no is auto-generated)
     if (questions.some(q => 
-      (q.type === 'multiple-choice' || q.type === 'yes-no') && 
+      q.type === 'multiple-choice' && 
       (!q.options || q.options.some(o => !o.trim()))
     )) {
       toast.error('Please fill in all option fields');
@@ -132,8 +133,8 @@ export default function CreatePollPage() {
       const poll = await createPoll(pollData);
       toast.success('Poll created successfully!');
       router.push(`/dashboard/polls/${poll.$id}`);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create poll');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to create poll');
     } finally {
       setLoading(false);
     }
@@ -340,7 +341,7 @@ export default function CreatePollPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label htmlFor="anonymous">Allow Anonymous Responses</Label>
-                  <p className="text-sm text-gray-500">Participants don't need to provide their name</p>
+                  <p className="text-sm text-gray-500">Participants don&apos;t need to provide their name</p>
                 </div>
                 <Switch
                   id="anonymous"
@@ -377,7 +378,7 @@ export default function CreatePollPage() {
                 <Label>Show Results</Label>
                 <Select
                   value={settings.showResults}
-                  onValueChange={(value: any) => setSettings({ ...settings, showResults: value })}
+                  onValueChange={(value) => setSettings({ ...settings, showResults: value as typeof settings.showResults })}
                 >
                   <SelectTrigger>
                     <SelectValue />

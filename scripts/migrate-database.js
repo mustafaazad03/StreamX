@@ -38,8 +38,6 @@ const collections = {
       { key: 'email', type: 'string', size: 255, required: true },
       { key: 'name', type: 'string', size: 255, required: true },
       { key: 'subscription', type: 'string', size: 50, required: true, default: 'free' },
-      { key: 'createdAt', type: 'string', size: 50, required: true },
-      { key: 'lastActive', type: 'string', size: 50, required: true },
       { key: 'pollsCreated', type: 'integer', required: false, default: 0 },
       { key: 'totalParticipants', type: 'integer', required: false, default: 0 },
     ],
@@ -57,10 +55,7 @@ const collections = {
       { key: 'questions', type: 'string', size: 50000, required: true },
       { key: 'settings', type: 'string', size: 5000, required: true },
       { key: 'isActive', type: 'boolean', required: true, default: true },
-      { key: 'createdAt', type: 'string', size: 50, required: true },
-      { key: 'updatedAt', type: 'string', size: 50, required: true },
       { key: 'expiresAt', type: 'string', size: 50, required: false },
-      { key: 'qrCodeUrl', type: 'string', size: 5000, required: false },
       { key: 'shareableLink', type: 'string', size: 500, required: false },
       { key: 'responseCount', type: 'integer', required: false, default: 0 },
       { key: 'viewCount', type: 'integer', required: false, default: 0 },
@@ -68,7 +63,6 @@ const collections = {
     indexes: [
       { key: 'creatorId_key', type: 'key', attributes: ['creatorId'] },
       { key: 'isActive_key', type: 'key', attributes: ['isActive'] },
-      { key: 'createdAt_desc', type: 'key', attributes: ['createdAt'], orders: ['DESC'] },
     ],
   },
   responses: {
@@ -79,14 +73,12 @@ const collections = {
       { key: 'participantEmail', type: 'string', size: 255, required: false },
       { key: 'participantName', type: 'string', size: 255, required: false },
       { key: 'answers', type: 'string', size: 50000, required: true },
-      { key: 'submittedAt', type: 'string', size: 50, required: true },
       { key: 'ipAddress', type: 'string', size: 50, required: false },
       { key: 'userAgent', type: 'string', size: 500, required: false },
     ],
     indexes: [
       { key: 'pollId_key', type: 'key', attributes: ['pollId'] },
       { key: 'participantId_key', type: 'key', attributes: ['participantId'] },
-      { key: 'submittedAt_desc', type: 'key', attributes: ['submittedAt'], orders: ['DESC'] },
     ],
   },
   sessions: {
@@ -95,13 +87,11 @@ const collections = {
       { key: 'pollId', type: 'string', size: 255, required: true },
       { key: 'isActive', type: 'boolean', required: true, default: true },
       { key: 'participantCount', type: 'integer', required: false, default: 0 },
-      { key: 'startedAt', type: 'string', size: 50, required: true },
       { key: 'endedAt', type: 'string', size: 50, required: false },
     ],
     indexes: [
       { key: 'pollId_key', type: 'key', attributes: ['pollId'] },
       { key: 'isActive_key', type: 'key', attributes: ['isActive'] },
-      { key: 'startedAt_desc', type: 'key', attributes: ['startedAt'], orders: ['DESC'] },
     ],
   },
 };
@@ -222,21 +212,37 @@ async function updateCollectionPermissions(collectionId, collectionName) {
   console.log(`\n🔒 Updating permissions for: ${collectionName}`);
   
   try {
-    let permissions = [
-      Permission.read(Role.any()),
-      Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users()),
-    ];
+    let permissions = [];
+    let documentSecurity = true; // Enable document-level security
     
-    // Special permissions for responses collection - allow any to create
-    if (collectionName === 'responses') {
+    // Polls: Anyone can read, only users can create/update/delete
+    if (collectionName === 'polls') {
       permissions = [
-        Permission.read(Role.users()),
-        Permission.create(Role.any()), // Allow anonymous responses
+        Permission.read(Role.any()), // Anyone can read polls
+        Permission.create(Role.users()),
         Permission.update(Role.users()),
         Permission.delete(Role.users()),
       ];
+      documentSecurity = false; // Collection-level permissions
+    }
+    
+    // Responses: Anyone can create, only users can read their own
+    else if (collectionName === 'responses') {
+      permissions = [
+        Permission.create(Role.any()), // Allow anonymous responses
+      ];
+      documentSecurity = true; // Document-level permissions for reading
+    }
+    
+    // Users and Sessions: Standard user permissions
+    else {
+      permissions = [
+        Permission.read(Role.users()),
+        Permission.create(Role.users()),
+        Permission.update(Role.users()),
+        Permission.delete(Role.users()),
+      ];
+      documentSecurity = false;
     }
     
     await databases.updateCollection(
@@ -244,11 +250,11 @@ async function updateCollectionPermissions(collectionId, collectionName) {
       collectionId,
       collectionName,
       permissions,
-      false, // documentSecurity
+      documentSecurity,
       true   // enabled
     );
     
-    console.log(`   ✅ Permissions updated`);
+    console.log(`   ✅ Permissions updated (documentSecurity: ${documentSecurity})`);
   } catch (error) {
     console.error(`   ❌ Error updating permissions:`, error.message);
   }

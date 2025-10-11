@@ -24,8 +24,8 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Welcome back!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to login');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to login');
     } finally {
       setLoading(false);
     }

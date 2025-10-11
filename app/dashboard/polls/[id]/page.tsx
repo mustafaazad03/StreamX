@@ -14,7 +14,7 @@ import { ArrowLeft, QrCode, Link2, BarChart3, Users, Download, Share2, Settings,
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+
 import Image from 'next/image';
 import { responseService } from '@/lib/services/response.service';
 import { pollService } from '@/lib/services/poll.service';
@@ -28,6 +28,14 @@ export default function PollViewPage() {
   const { responses, loading: responsesLoading } = useResponses(pollId);
   const { results, loading: resultsLoading } = useAggregatedResults(pollId);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+
+  useEffect(() => {
+    if (poll) {
+      // Generate QR code on demand
+      pollService.generateQRCode(pollId).then(setQrCodeUrl).catch(console.error);
+    }
+  }, [poll, pollId]);
 
   useEffect(() => {
     if (poll && user && poll.creatorId !== user.$id) {
@@ -46,26 +54,29 @@ export default function PollViewPage() {
   };
 
   const downloadQRCode = () => {
-    if (poll?.qrCodeUrl) {
+    if (qrCodeUrl) {
       const link = document.createElement('a');
-      link.download = `${poll.title}-qr-code.png`;
-      link.href = poll.qrCodeUrl;
+      link.download = `${poll?.title}-qr-code.png`;
+      link.href = qrCodeUrl;
       link.click();
     }
   };
 
-  const exportCSV = async () => {
+    const exportCSV = async () => {
     try {
-      const csv = await responseService.exportToCSV(pollId);
-      const blob = new Blob([csv], { type: 'text/csv' });
+      if (!pollId) return;
+      
+      const csvContent = await responseService.exportToCSV(pollId);
+      const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${poll?.title || 'poll'}-responses.csv`;
-      link.click();
-      toast.success('Responses exported successfully!');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${poll?.title || 'poll'}-responses.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('CSV downloaded successfully!');
     } catch (error) {
-      toast.error('Failed to export responses');
+      toast.error(error instanceof Error ? error.message : 'Failed to download CSV');
     }
   };
 
@@ -75,19 +86,19 @@ export default function PollViewPage() {
       await pollService.togglePollStatus(pollId, !poll.isActive);
       toast.success(poll.isActive ? 'Poll deactivated' : 'Poll activated');
       window.location.reload();
-    } catch (error) {
+    } catch {
       toast.error('Failed to toggle poll status');
     }
   };
 
-  const deletePoll = async () => {
+    const deletePoll = async () => {
     if (!poll || !window.confirm('Are you sure you want to delete this poll? This action cannot be undone.')) return;
     try {
       await pollService.deletePoll(pollId);
       toast.success('Poll deleted successfully');
       router.push('/dashboard');
     } catch (error) {
-      toast.error('Failed to delete poll');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete poll');
     }
   };
 
@@ -137,7 +148,7 @@ export default function PollViewPage() {
               <div>
                 <h1 className="text-2xl font-bold">{poll.title}</h1>
                 <p className="text-sm text-gray-600">
-                  Created {format(new Date(poll.createdAt), 'MMM d, yyyy')}
+                  Created {format(new Date(poll.$createdAt), 'MMM d, yyyy')}
                 </p>
               </div>
             </div>
@@ -229,8 +240,17 @@ export default function PollViewPage() {
               </Card>
             ) : results && results.totalResponses > 0 ? (
               poll.questions.map((question, index) => {
-                const questionResult = results.questionResults.find(
-                  (qr: any) => qr.questionId === question.id
+                const questionResult = (results.questionResults as Array<{ 
+                  questionId: string; 
+                  questionText: string; 
+                  results: Record<string, number>; 
+                  responses?: Record<string, number>;
+                  textResponses?: string[];
+                  totalResponses: number;
+                  averageRating?: number;
+                  topAnswer?: string;
+                }>).find(
+                  (qr) => qr.questionId === question.id
                 );
 
                 return (
@@ -319,7 +339,7 @@ export default function PollViewPage() {
                           {response.participantName || 'Anonymous'}
                         </CardTitle>
                         <span className="text-sm text-gray-500">
-                          {format(new Date(response.submittedAt), 'MMM d, yyyy HH:mm')}
+                          {format(new Date(response.$createdAt), 'MMM d, yyyy HH:mm')}
                         </span>
                       </div>
                       {response.participantEmail && (
@@ -370,17 +390,21 @@ export default function PollViewPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col items-center">
-                  {poll.qrCodeUrl && (
+                  {qrCodeUrl ? (
                     <div className="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4">
                       <Image
-                        src={poll.qrCodeUrl}
+                        src={qrCodeUrl}
                         alt="Poll QR Code"
                         width={300}
                         height={300}
                       />
                     </div>
+                  ) : (
+                    <div className="bg-white p-4 rounded-lg border-2 border-gray-200 mb-4 w-[300px] h-[300px] flex items-center justify-center">
+                      <QrCode className="h-24 w-24 text-gray-300 animate-pulse" />
+                    </div>
                   )}
-                  <Button onClick={downloadQRCode} className="w-full">
+                  <Button onClick={downloadQRCode} className="w-full" disabled={!qrCodeUrl}>
                     <Download className="h-4 w-4 mr-2" />
                     Download QR Code
                   </Button>

@@ -5,8 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, BarChart3, Users, TrendingUp, Settings, LogOut, Sparkles } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, BarChart3, Settings, LogOut, Sparkles } from 'lucide-react';
 import { usePolls } from '@/hooks/usePolls';
 import { useUserStatistics } from '@/hooks/useAnalytics';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -185,7 +184,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
                       <span>Created</span>
-                      <span>{format(new Date(poll.createdAt), 'MMM d, yyyy')}</span>
+                      <span>{format(new Date(poll.$createdAt), 'MMM d, yyyy')}</span>
                     </div>
                   </div>
                 </CardContent>

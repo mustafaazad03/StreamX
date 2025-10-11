@@ -37,7 +37,7 @@ export class AuthService {
   async getCurrentUser(): Promise<Models.User<Models.Preferences> | null> {
     try {
       return await account.get();
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -45,7 +45,7 @@ export class AuthService {
   async getCurrentSession(): Promise<Models.Session | null> {
     try {
       return await account.getSession('current');
-    } catch (error) {
+    } catch {
       return null;
     }
   }

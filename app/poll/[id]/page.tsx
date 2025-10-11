@@ -23,21 +23,23 @@ export default function PollParticipationPage() {
   const pollId = params.id as string;
   const { poll, loading: pollLoading } = usePoll(pollId);
   const { session, createAnonymousSession } = useAuth();
-  const [answers, setAnswers] = useState<{ [key: string]: any }>({});
+  const [answers, setAnswers] = useState<{ [key: string]: string | string[] | number }>({});
   const [participantName, setParticipantName] = useState('');
   const [participantEmail, setParticipantEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [hasResponded, setHasResponded] = useState(false);
+  const [sessionInitialized, setSessionInitialized] = useState(false);
 
   useEffect(() => {
     const initSession = async () => {
-      if (!session) {
+      if (!session && !sessionInitialized) {
+        setSessionInitialized(true);
         await createAnonymousSession();
       }
     };
     initSession();
-  }, [session, createAnonymousSession]);
+  }, [session, sessionInitialized, createAnonymousSession]);
 
   useEffect(() => {
     const checkResponse = async () => {
@@ -52,18 +54,18 @@ export default function PollParticipationPage() {
     checkResponse();
   }, [session, poll, pollId]);
 
-  const handleAnswerChange = (questionId: string, value: any) => {
+  const handleAnswerChange = (questionId: string, value: string | string[] | number) => {
     setAnswers({ ...answers, [questionId]: value });
   };
 
   const handleMultipleChoiceChange = (questionId: string, option: string, checked: boolean) => {
-    const currentAnswers = answers[questionId] || [];
+    const currentAnswers = (answers[questionId] as string[]) || [];
     if (checked) {
       setAnswers({ ...answers, [questionId]: [...currentAnswers, option] });
     } else {
       setAnswers({
         ...answers,
-        [questionId]: currentAnswers.filter((a: string) => a !== option),
+        [questionId]: currentAnswers.filter((a) => a !== option),
       });
     }
   };
@@ -116,8 +118,8 @@ export default function PollParticipationPage() {
 
       setSubmitted(true);
       toast.success('Response submitted successfully!');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to submit response');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to submit response');
     } finally {
       setSubmitting(false);
     }
@@ -280,7 +282,7 @@ export default function PollParticipationPage() {
                         <div key={option} className="flex items-center space-x-2">
                           <Checkbox
                             id={`${question.id}-${option}`}
-                            checked={(answers[question.id] || []).includes(option)}
+                            checked={((answers[question.id] as string[]) || []).includes(option)}
                             onCheckedChange={(checked) =>
                               handleMultipleChoiceChange(question.id, option, checked as boolean)
                             }
@@ -295,7 +297,7 @@ export default function PollParticipationPage() {
                       ))
                     ) : (
                       <RadioGroup
-                        value={answers[question.id]}
+                        value={answers[question.id] as string}
                         onValueChange={(value) => handleAnswerChange(question.id, value)}
                         required={question.required}
                       >
@@ -317,7 +319,7 @@ export default function PollParticipationPage() {
 
                 {question.type === 'yes-no' && (
                   <RadioGroup
-                    value={answers[question.id]}
+                    value={answers[question.id] as string}
                     onValueChange={(value) => handleAnswerChange(question.id, value)}
                     required={question.required}
                   >
