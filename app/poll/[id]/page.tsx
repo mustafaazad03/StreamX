@@ -21,7 +21,8 @@ export default function PollParticipationPage() {
   const params = useParams();
   const router = useRouter();
   const pollId = params.id as string;
-  const { poll, loading: pollLoading, error: pollError } = usePoll(pollId);
+  const { poll, loading: pollLoading } = usePoll(pollId);
+  const pollError = false;
   const { session, createAnonymousSession } = useAuth();
   const [answers, setAnswers] = useState<{ [key: string]: string | string[] | number }>({});
   const [participantName, setParticipantName] = useState('');
@@ -73,14 +74,23 @@ export default function PollParticipationPage() {
     if (poll) {
       const rankingQuestions = poll.questions.filter(q => q.type === 'ranking');
       const initialDraggedItems: { [key: string]: string[] } = {};
+      const initialAnswers: { [key: string]: string[] } = {};
       
       rankingQuestions.forEach(q => {
         if (q.options) {
-          initialDraggedItems[q.id] = [...q.options];
+          const optionsCopy = [...q.options];
+          initialDraggedItems[q.id] = optionsCopy;
+          // Also set initial answers so ranking questions are pre-populated
+          initialAnswers[q.id] = optionsCopy;
         }
       });
       
       setDraggedItems(initialDraggedItems);
+      
+      // Set initial answers for ranking questions
+      if (Object.keys(initialAnswers).length > 0) {
+        setAnswers(prev => ({ ...prev, ...initialAnswers }));
+      }
     }
   }, [poll]);
 
@@ -121,7 +131,7 @@ export default function PollParticipationPage() {
         // Try to create session again
         try {
           await createAnonymousSession();
-        } catch (error) {
+        } catch {
           toast.error('Failed to initialize session. Please refresh the page.');
         }
       } else {

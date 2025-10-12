@@ -3,9 +3,47 @@ import { account } from '@/lib/appwrite';
 import { ID, Models, OAuthProvider } from 'appwrite';
 
 export class AuthService {
+  /**
+   * Utility method to safely delete all sessions
+   * Useful for ensuring clean state before authentication
+   */
+  async deleteAllSessions(): Promise<void> {
+    try {
+      await account.deleteSessions();
+    } catch (error) {
+      console.warn('Failed to delete sessions:', error);
+      // Ignore errors - this is a cleanup operation
+    }
+  }
+
+  /**
+   * Utility method to safely delete current session
+   */
+  async deleteCurrentSession(): Promise<void> {
+    try {
+      await account.deleteSession('current');
+    } catch (error) {
+      // Ignore 401 errors (no active session)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any)?.code !== 401) {
+        console.warn('Failed to delete current session:', error);
+      }
+    }
+  }
+
   // Email/Password Authentication
   async createAccount(email: string, password: string, name: string): Promise<Models.User<Models.Preferences>> {
     try {
+      // Check and delete any existing anonymous session
+      const existingSession = await this.getCurrentSession();
+      if (existingSession) {
+        try {
+          await account.deleteSession('current');
+        } catch (deleteError) {
+          console.warn('Failed to delete existing session during registration:', deleteError);
+        }
+      }
+      
       const user = await account.create(ID.unique(), email, password, name);
       // Automatically log in after registration
       await this.login(email, password);
@@ -18,6 +56,20 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<Models.Session> {
     try {
+      // Check if there's an existing session
+      const existingSession = await this.getCurrentSession();
+      
+      if (existingSession) {
+        // Delete the existing session before creating a new one
+        // This handles both anonymous and authenticated sessions
+        try {
+          await account.deleteSession('current');
+        } catch (deleteError) {
+          console.warn('Failed to delete existing session, attempting to continue:', deleteError);
+        }
+      }
+      
+      // Create new email/password session
       return await account.createEmailPasswordSession(email, password);
     } catch (error) {
       console.error('Error logging in:', error);
@@ -30,7 +82,11 @@ export class AuthService {
       await account.deleteSession('current');
     } catch (error) {
       console.error('Error logging out:', error);
-      throw error;
+      // Don't throw error if there's no session to delete
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((error as any)?.code !== 401) {
+        throw error;
+      }
     }
   }
 
@@ -62,9 +118,11 @@ export class AuthService {
       
       // Only create a new anonymous session if none exists
       return await account.createAnonymousSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If error is about existing session, try to get current session
-      if (error.code === 401 || error.type === 'user_session_already_exists') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
+      if (err.code === 401 || err.type === 'user_session_already_exists') {
         const session = await this.getCurrentSession();
         if (session) {
           return session;

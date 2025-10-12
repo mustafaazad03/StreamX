@@ -46,6 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
+      // Clear any existing state
+      setUser(null);
+      setSession(null);
+      
       const newSession = await authService.login(email, password);
       const currentUser = await authService.getCurrentUser();
       
@@ -54,12 +58,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       router.push('/dashboard');
     } catch (error) {
+      // Re-check auth state in case of error
+      await checkAuth();
       throw error;
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
     try {
+      // Clear any existing state
+      setUser(null);
+      setSession(null);
+      
       await authService.createAccount(email, password, name);
       const currentUser = await authService.getCurrentUser();
       const currentSession = await authService.getCurrentSession();
@@ -69,6 +79,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       router.push('/dashboard');
     } catch (error) {
+      // Re-check auth state in case of error
+      await checkAuth();
       throw error;
     }
   };

@@ -8,11 +8,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { aiService } from "@/lib/services/ai.service";
 import { pollService } from "@/lib/services/poll.service";
 import { examplesService, ExamplePrompt } from "@/lib/services/examples.service";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, RefreshCw, Save, ArrowLeft, MessageSquare, Loader2 } from "lucide-react";
+import { Sparkles, RefreshCw, Save, ArrowLeft, MessageSquare, Loader2, Edit2, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Question } from "@/lib/types";
 
@@ -40,6 +46,11 @@ export default function AIPollBuilderPage() {
   const [examples, setExamples] = useState<ExamplePrompt[]>([]);
   const [loadingExamples, setLoadingExamples] = useState(true);
   const autoRefreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Edit states
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null);
+  const [editedQuestion, setEditedQuestion] = useState<Omit<Question, 'id'> | null>(null);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   // Placeholder examples for the input component
   const placeholders = examples.length > 0 
@@ -147,7 +158,7 @@ export default function AIPollBuilderPage() {
     } finally {
       setIsGenerating(false);
     }
-  }, [isGenerating]);
+  }, [isGenerating, generatedPoll]);
 
   // Handle example click - populate and submit
   const handleExampleClick = useCallback((exampleText: string) => {
@@ -155,7 +166,7 @@ export default function AIPollBuilderPage() {
     setPrompt(exampleText);
     // Directly call generate with the text
     generatePollFromPrompt(exampleText);
-  }, [isGenerating]);
+  }, [isGenerating, generatePollFromPrompt]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -189,6 +200,37 @@ export default function AIPollBuilderPage() {
     setGeneratedPoll(null);
     setConversationHistory([]);
     toast.info("Starting fresh! Enter a new prompt to create a poll.");
+  };
+
+  const handleEditQuestion = (index: number) => {
+    if (!generatedPoll) return;
+    setEditingQuestionIndex(index);
+    setEditedQuestion({ ...generatedPoll.questions[index] });
+  };
+
+  const handleSaveEditedQuestion = () => {
+    if (editingQuestionIndex === null || !editedQuestion || !generatedPoll) return;
+    
+    const updatedQuestions = [...generatedPoll.questions];
+    updatedQuestions[editingQuestionIndex] = editedQuestion;
+    
+    setGeneratedPoll({
+      ...generatedPoll,
+      questions: updatedQuestions,
+    });
+    
+    setEditingQuestionIndex(null);
+    setEditedQuestion(null);
+    toast.success("Question updated successfully!");
+  };
+
+  const handleUpdateSettings = (newSettings: GeneratedPoll['settings']) => {
+    if (!generatedPoll) return;
+    
+    setGeneratedPoll({
+      ...generatedPoll,
+      settings: newSettings,
+    });
   };
 
   const getQuestionTypeColor = (type: string) => {
@@ -307,11 +349,21 @@ export default function AIPollBuilderPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* Settings Preview */}
+                  {/* Settings Preview with Edit Button */}
                   <div>
-                    <h3 className="font-semibold mb-3 text-sm uppercase text-gray-600 dark:text-gray-400">
-                      Poll Settings
-                    </h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-sm uppercase text-gray-600 dark:text-gray-400">
+                        Poll Settings
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowSettingsDialog(true)}
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Edit Settings
+                      </Button>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {generatedPoll.settings.allowAnonymous && (
                         <Badge variant="outline">Anonymous Responses</Badge>
@@ -337,7 +389,11 @@ export default function AIPollBuilderPage() {
                     </h3>
                     <div className="space-y-4">
                       {generatedPoll.questions.map((question, index) => (
-                        <Card key={index} className="bg-gray-50 dark:bg-gray-800/50">
+                        <Card 
+                          key={index} 
+                          className="bg-gray-50 dark:bg-gray-800/50 hover:shadow-md transition-shadow cursor-pointer group"
+                          onClick={() => handleEditQuestion(index)}
+                        >
                           <CardContent className="pt-6">
                             <div className="flex items-start gap-3">
                               <Badge
@@ -348,12 +404,25 @@ export default function AIPollBuilderPage() {
                                 {getQuestionTypeLabel(question.type)}
                               </Badge>
                               <div className="flex-1">
-                                <p className="font-medium mb-1">
-                                  {index + 1}. {question.question}
-                                  {question.required && (
-                                    <span className="text-red-500 ml-1">*</span>
-                                  )}
-                                </p>
+                                <div className="flex items-start justify-between">
+                                  <p className="font-medium mb-1 flex-1">
+                                    {index + 1}. {question.question}
+                                    {question.required && (
+                                      <span className="text-red-500 ml-1">*</span>
+                                    )}
+                                  </p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditQuestion(index);
+                                    }}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                                 {question.description && (
                                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                                     {question.description}
@@ -482,6 +551,219 @@ export default function AIPollBuilderPage() {
           </Card>
         )}
       </div>
+
+      {/* Edit Question Dialog */}
+      <Dialog open={editingQuestionIndex !== null} onOpenChange={(open) => !open && setEditingQuestionIndex(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Question</DialogTitle>
+            <DialogDescription>
+              Make changes to this question. Click save when you&apos;re done.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editedQuestion && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Question Text</Label>
+                <Input
+                  value={editedQuestion.question}
+                  onChange={(e) => setEditedQuestion({ ...editedQuestion, question: e.target.value })}
+                  placeholder="Enter your question"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Description (Optional)</Label>
+                <Textarea
+                  value={editedQuestion.description || ''}
+                  onChange={(e) => setEditedQuestion({ ...editedQuestion, description: e.target.value })}
+                  placeholder="Add a description to help participants"
+                  rows={2}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={editedQuestion.required}
+                  onCheckedChange={(checked) => setEditedQuestion({ ...editedQuestion, required: checked })}
+                />
+                <Label>Required question</Label>
+              </div>
+
+              {(editedQuestion.type === 'multiple-choice' || editedQuestion.type === 'ranking') && (
+                <div className="space-y-2">
+                  <Label>Options</Label>
+                  <div className="space-y-2">
+                    {editedQuestion.options?.map((option, idx) => (
+                      <Input
+                        key={idx}
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...(editedQuestion.options || [])];
+                          newOptions[idx] = e.target.value;
+                          setEditedQuestion({ ...editedQuestion, options: newOptions });
+                        }}
+                        placeholder={`Option ${idx + 1}`}
+                      />
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditedQuestion({
+                          ...editedQuestion,
+                          options: [...(editedQuestion.options || []), ''],
+                        });
+                      }}
+                    >
+                      Add Option
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {editedQuestion.type === 'multiple-choice' && (
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={editedQuestion.allowMultipleAnswers || false}
+                    onCheckedChange={(checked) => 
+                      setEditedQuestion({ ...editedQuestion, allowMultipleAnswers: checked })
+                    }
+                  />
+                  <Label>Allow multiple answers</Label>
+                </div>
+              )}
+
+              {editedQuestion.type === 'rating' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Minimum Rating</Label>
+                    <Input
+                      type="number"
+                      value={editedQuestion.minRating || 1}
+                      onChange={(e) => 
+                        setEditedQuestion({ ...editedQuestion, minRating: parseInt(e.target.value) })
+                      }
+                      min={1}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Maximum Rating</Label>
+                    <Input
+                      type="number"
+                      value={editedQuestion.maxRating || 5}
+                      onChange={(e) => 
+                        setEditedQuestion({ ...editedQuestion, maxRating: parseInt(e.target.value) })
+                      }
+                      min={editedQuestion.minRating || 1}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingQuestionIndex(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEditedQuestion}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Settings Dialog */}
+      <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Poll Settings</DialogTitle>
+            <DialogDescription>
+              Configure how your poll works
+            </DialogDescription>
+          </DialogHeader>
+          
+          {generatedPoll && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Allow Anonymous Responses</Label>
+                  <p className="text-sm text-gray-500">
+                    Participants don&apos;t need to provide their name
+                  </p>
+                </div>
+                <Switch
+                  checked={generatedPoll.settings.allowAnonymous}
+                  onCheckedChange={(checked) => 
+                    handleUpdateSettings({ ...generatedPoll.settings, allowAnonymous: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Allow Multiple Responses</Label>
+                  <p className="text-sm text-gray-500">
+                    Same participant can submit multiple times
+                  </p>
+                </div>
+                <Switch
+                  checked={generatedPoll.settings.allowMultipleResponses}
+                  onCheckedChange={(checked) => 
+                    handleUpdateSettings({ ...generatedPoll.settings, allowMultipleResponses: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Require Email</Label>
+                  <p className="text-sm text-gray-500">
+                    Collect email addresses from participants
+                  </p>
+                </div>
+                <Switch
+                  checked={generatedPoll.settings.requireEmail}
+                  onCheckedChange={(checked) => 
+                    handleUpdateSettings({ ...generatedPoll.settings, requireEmail: checked })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Show Results</Label>
+                <Select
+                  value={generatedPoll.settings.showResults}
+                  onValueChange={(value) => 
+                    handleUpdateSettings({ 
+                      ...generatedPoll.settings, 
+                      showResults: value as 'always' | 'after-submission' | 'never'
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="always">Always (Live Results)</SelectItem>
+                    <SelectItem value="after-submission">After Submission</SelectItem>
+                    <SelectItem value="never">Never (Creator Only)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button onClick={() => setShowSettingsDialog(false)}>
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

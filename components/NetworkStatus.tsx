@@ -70,7 +70,7 @@ export function NetworkStatus() {
           <>
             <WifiOff className="h-5 w-5" />
             <div>
-              <p className="font-semibold">You're offline</p>
+              <p className="font-semibold">You&apos;re offline</p>
               <p className="text-xs opacity-90">Check your connection</p>
             </div>
           </>
@@ -81,7 +81,6 @@ export function NetworkStatus() {
 }
 
 export function ConnectionSpeedIndicator() {
-  const [speed, setSpeed] = useState<'slow' | 'medium' | 'fast'>('fast');
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -89,7 +88,6 @@ export function ConnectionSpeedIndicator() {
 
     const updateSpeed = () => {
       const currentSpeed = networkUtils.getConnectionSpeed();
-      setSpeed(currentSpeed);
       setShow(currentSpeed === 'slow');
     };
 

@@ -348,7 +348,7 @@ export default function PollViewPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        {response.answers.map((answer, index) => {
+                        {(Array.isArray(response.answers) ? response.answers : []).map((answer, index) => {
                           const question = poll.questions.find(q => q.id === answer.questionId);
                           return (
                             <div key={index} className="border-l-2 border-blue-600 pl-3">

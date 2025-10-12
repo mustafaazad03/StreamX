@@ -265,9 +265,26 @@ export class ResponseService {
 
   // Transform document to Response type
   private transformResponseDocument(doc: Record<string, unknown>): Response {
+    // Safely parse answers - handle both string and already parsed cases
+    let parsedAnswers;
+    
+    if (typeof doc.answers === 'string') {
+      try {
+        parsedAnswers = JSON.parse(doc.answers);
+      } catch (error) {
+        console.error('Failed to parse answers JSON:', error);
+        parsedAnswers = [];
+      }
+    } else if (Array.isArray(doc.answers)) {
+      parsedAnswers = doc.answers;
+    } else {
+      console.warn('Unexpected answers format:', typeof doc.answers);
+      parsedAnswers = [];
+    }
+    
     return {
       ...doc,
-      answers: typeof doc.answers === 'string' ? JSON.parse(doc.answers) : doc.answers,
+      answers: parsedAnswers,
     } as Response;
   }
 

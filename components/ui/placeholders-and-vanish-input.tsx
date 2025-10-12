@@ -145,6 +145,7 @@ export function PlaceholdersAndVanishInput({
               ctx.fillStyle = color;
               ctx.strokeStyle = color;
               ctx.stroke();
+              // Continue rendering
             }
           });
         }
@@ -157,7 +158,6 @@ export function PlaceholdersAndVanishInput({
       });
     };
     animateFrame(start);
-    return undefined;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -177,15 +177,17 @@ export function PlaceholdersAndVanishInput({
         0
       );
       animate(maxX);
-      return undefined;
+      // Animation started
     }
-    return undefined;
+    // No value to animate
   };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     vanishAndSubmit();
-    onSubmit && onSubmit(e);
+    if (onSubmit) {
+      onSubmit(e);
+    }
   };
   return (
     <form
@@ -206,7 +208,9 @@ export function PlaceholdersAndVanishInput({
         onChange={(e) => {
           if (!animating) {
             setValue(e.target.value);
-            onChange && onChange(e);
+            if (onChange) {
+              onChange(e);
+            }
           }
         }}
         onKeyDown={handleKeyDown}

@@ -21,6 +21,7 @@ export const networkUtils = {
   getConnectionSpeed(): 'slow' | 'medium' | 'fast' {
     if (typeof navigator === 'undefined') return 'fast';
     
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
     
     if (!connection) return 'fast';
@@ -142,6 +143,7 @@ export const networkUtils = {
   /**
    * Check if error is a network error
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   isNetworkError(error: any): boolean {
     return (
       error instanceof NetworkError ||
@@ -158,6 +160,7 @@ export const networkUtils = {
   /**
    * Get user-friendly error message
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getErrorMessage(error: any): string {
     if (error instanceof NetworkError) {
       if (error.code === 'OFFLINE') {
@@ -178,12 +181,14 @@ export const networkUtils = {
   /**
    * Debounce function for optimizing frequent requests
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   debounce<T extends (...args: any[]) => any>(
     func: T,
     waitMs: number
   ): (...args: Parameters<T>) => void {
     let timeoutId: NodeJS.Timeout | null = null;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return function (this: any, ...args: Parameters<T>) {
       if (timeoutId) {
         clearTimeout(timeoutId);
@@ -198,12 +203,14 @@ export const networkUtils = {
   /**
    * Throttle function for rate limiting
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   throttle<T extends (...args: any[]) => any>(
     func: T,
     limitMs: number
   ): (...args: Parameters<T>) => void {
     let inThrottle = false;
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return function (this: any, ...args: Parameters<T>) {
       if (!inThrottle) {
         func.apply(this, args);
@@ -220,18 +227,23 @@ export const networkUtils = {
  * Hook for monitoring online/offline status
  */
 export function useNetworkStatus() {
-  if (typeof window === 'undefined') {
-    return { isOnline: true, speed: 'fast' as const };
-  }
-
-  const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+  // Early return with hooks called
+  const [isOnline, setIsOnline] = React.useState(
+    typeof window !== 'undefined' ? navigator.onLine : true
+  );
   const [speed, setSpeed] = React.useState<'slow' | 'medium' | 'fast'>(
-    networkUtils.getConnectionSpeed()
+    typeof window !== 'undefined' ? networkUtils.getConnectionSpeed() : 'fast'
   );
 
   React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
+    
+    // Set initial values
+    setIsOnline(navigator.onLine);
+    setSpeed(networkUtils.getConnectionSpeed());
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
