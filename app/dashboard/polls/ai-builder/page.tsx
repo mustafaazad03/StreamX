@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles, RefreshCw, Save, ArrowLeft, MessageSquare, Loader2, Edit2, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { Question } from "@/lib/types";
+import Link from "next/link";
 
 interface GeneratedPoll {
   title: string;
@@ -262,15 +263,15 @@ export default function AIPollBuilderPage() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/dashboard/polls")}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Polls
-          </Button>
-          
+          <Link href="/dashboard">
+            <Button
+              variant="ghost"
+              className="mb-4"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Polls
+            </Button>
+          </Link>
           <div className="flex items-center gap-3 mb-2">
             <Sparkles className="h-8 w-8 text-purple-600 dark:text-purple-400" />
             <h1 className="text-4xl font-bold text-gray-900 dark:text-white">

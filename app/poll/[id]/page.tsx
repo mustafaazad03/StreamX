@@ -23,7 +23,7 @@ export default function PollParticipationPage() {
   const pollId = params.id as string;
   const { poll, loading: pollLoading } = usePoll(pollId);
   const pollError = false;
-  const { session, createAnonymousSession } = useAuth();
+  const { session, user, createAnonymousSession } = useAuth();
   const [answers, setAnswers] = useState<{ [key: string]: string | string[] | number }>({});
   const [participantName, setParticipantName] = useState('');
   const [participantEmail, setParticipantEmail] = useState('');
@@ -34,23 +34,45 @@ export default function PollParticipationPage() {
   const [sessionError, setSessionError] = useState(false);
   const [draggedItems, setDraggedItems] = useState<{ [key: string]: string[] }>({});
 
+  // Auto-fill user information if logged in
+  useEffect(() => {
+    if (user) {
+      setParticipantName(user.name || '');
+      setParticipantEmail(user.email || '');
+    }
+  }, [user]);
+
+  // Check if user needs to be authenticated (non-anonymous poll)
+  useEffect(() => {
+    if (poll && !poll.settings.allowAnonymous && !user) {
+      // Store the current URL to return after login
+      const returnUrl = `/poll/${pollId}`;
+      localStorage.setItem('returnUrl', returnUrl);
+      toast.info('This poll requires you to be logged in');
+      router.push(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+    }
+  }, [poll, user, pollId, router]);
+
   useEffect(() => {
     const initSession = async () => {
-      if (!session && !sessionInitialized) {
-        setSessionInitialized(true);
-        try {
-          await createAnonymousSession();
+      // Only create anonymous session if poll allows anonymous responses
+      if (poll && poll.settings.allowAnonymous) {
+        if (!session && !sessionInitialized) {
+          setSessionInitialized(true);
+          try {
+            await createAnonymousSession();
+            setSessionError(false);
+          } catch (error) {
+            console.error('Failed to create anonymous session:', error);
+            setSessionError(true);
+          }
+        } else if (session) {
           setSessionError(false);
-        } catch (error) {
-          console.error('Failed to create anonymous session:', error);
-          setSessionError(true);
         }
-      } else if (session) {
-        setSessionError(false);
       }
     };
     initSession();
-  }, [session, sessionInitialized, createAnonymousSession]);
+  }, [session, sessionInitialized, createAnonymousSession, poll]);
 
   useEffect(() => {
     const checkResponse = async () => {
@@ -171,8 +193,8 @@ export default function PollParticipationPage() {
       await responseService.submitResponse(
         {
           pollId,
-          participantName: poll?.settings.allowAnonymous ? participantName : undefined,
-          participantEmail: poll?.settings.requireEmail ? participantEmail : undefined,
+          participantName: user ? user.name : (poll?.settings.allowAnonymous ? participantName : undefined),
+          participantEmail: user ? user.email : (poll?.settings.requireEmail ? participantEmail : undefined),
           answers: formattedAnswers,
         },
         session.userId
@@ -295,13 +317,15 @@ export default function PollParticipationPage() {
               <CardHeader>
                 <CardTitle className="text-base">Your Information</CardTitle>
                 <CardDescription>
-                  {poll.settings.requireEmail
+                  {user 
+                    ? 'Your account information will be used for this response'
+                    : poll.settings.requireEmail
                     ? 'Required to participate'
                     : 'Optional - helps us personalize your experience'}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {poll.settings.allowAnonymous && (
+                {poll.settings.allowAnonymous && !user && (
                   <div className="space-y-2">
                     <Label htmlFor="name">
                       Name {!poll.settings.requireEmail && '(Optional)'}
@@ -315,7 +339,19 @@ export default function PollParticipationPage() {
                     />
                   </div>
                 )}
-                {poll.settings.requireEmail && (
+                {user && (
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={participantName}
+                      disabled
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-500">Logged in as {user.name}</p>
+                  </div>
+                )}
+                {poll.settings.requireEmail && !user && (
                   <div className="space-y-2">
                     <Label htmlFor="email">Email *</Label>
                     <Input
@@ -326,6 +362,19 @@ export default function PollParticipationPage() {
                       onChange={(e) => setParticipantEmail(e.target.value)}
                       required
                     />
+                  </div>
+                )}
+                {user && (poll.settings.requireEmail || !poll.settings.allowAnonymous) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={participantEmail}
+                      disabled
+                      className="bg-gray-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-500">From your account</p>
                   </div>
                 )}
               </CardContent>

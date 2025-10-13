@@ -1,6 +1,40 @@
-// Authentication service
 import { account } from '@/lib/appwrite';
 import { ID, Models, OAuthProvider } from 'appwrite';
+
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxRetries = 3,
+  initialDelay = 500
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      
+      // Don't retry on auth errors (401, 409, etc.)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
+      if (err?.code === 401 || err?.code === 409 || err?.type?.includes('user_')) {
+        throw error;
+      }
+
+      // Don't retry on last attempt
+      if (attempt === maxRetries - 1) {
+        throw error;
+      }
+
+      // Wait before retrying with exponential backoff
+      const delay = initialDelay * Math.pow(2, attempt);
+      console.log(`Retry attempt ${attempt + 1} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError || new Error('Operation failed after retries');
+}
 
 export class AuthService {
   /**
@@ -34,46 +68,166 @@ export class AuthService {
   // Email/Password Authentication
   async createAccount(email: string, password: string, name: string): Promise<Models.User<Models.Preferences>> {
     try {
+      // Validate inputs
+      if (!email || !password || !name) {
+        throw new Error('All fields are required');
+      }
+
+      if (password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
+      }
+
       // Check and delete any existing anonymous session
-      const existingSession = await this.getCurrentSession();
+      let existingSession: Models.Session | null = null;
+      try {
+        existingSession = await this.getCurrentSession();
+      } catch (error) {
+        // No existing session
+        console.log('No existing session found during registration');
+      }
+
       if (existingSession) {
         try {
-          await account.deleteSession('current');
+          await retryWithBackoff(() => account.deleteSession('current'));
+          console.log('Deleted existing session before registration');
+          await new Promise(resolve => setTimeout(resolve, 100));
         } catch (deleteError) {
           console.warn('Failed to delete existing session during registration:', deleteError);
+          
+          // Try to delete all sessions
+          try {
+            await retryWithBackoff(() => account.deleteSessions());
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (fallbackError) {
+            console.warn('Failed to delete all sessions:', fallbackError);
+          }
         }
       }
       
-      const user = await account.create(ID.unique(), email, password, name);
+      // Create new account with retry logic
+      console.log('Creating account for:', email);
+      const user = await retryWithBackoff(() => 
+        account.create(ID.unique(), email, password, name),
+        3, // max retries
+        1000 // initial delay of 1 second
+      );
+      console.log('Account created successfully');
+      
+      // Small delay before login
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       // Automatically log in after registration
-      await this.login(email, password);
+      try {
+        await this.login(email, password);
+      } catch (loginError) {
+        console.warn('Auto-login failed after registration:', loginError);
+        // Don't fail registration if auto-login fails
+        // User can manually login
+      }
+      
       return user;
     } catch (error) {
       console.error('Error creating account:', error);
-      throw error;
+      
+      // Provide user-friendly error messages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
+      
+      if (err?.type === 'user_already_exists') {
+        throw new Error('An account with this email already exists');
+      } else if (err?.type === 'user_password_mismatch') {
+        throw new Error('Password does not meet requirements');
+      } else if (err?.message?.includes('Failed to fetch') || err?.message?.includes('fetch')) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      } else if (err?.code === 503 || err?.code === 500) {
+        throw new Error('Service temporarily unavailable. Please try again in a moment.');
+      } else if (err?.message) {
+        throw new Error(err.message);
+      }
+      
+      throw new Error('Failed to create account. Please try again.');
     }
   }
 
   async login(email: string, password: string): Promise<Models.Session> {
     try {
+      // Validate inputs
+      if (!email || !password) {
+        throw new Error('Email and password are required');
+      }
+
       // Check if there's an existing session
-      const existingSession = await this.getCurrentSession();
+      let existingSession: Models.Session | null = null;
+      try {
+        existingSession = await this.getCurrentSession();
+      } catch (error) {
+        // No existing session, continue
+        console.log('No existing session found');
+      }
       
       if (existingSession) {
         // Delete the existing session before creating a new one
         // This handles both anonymous and authenticated sessions
         try {
-          await account.deleteSession('current');
+          await retryWithBackoff(() => account.deleteSession('current'));
+          console.log('Deleted existing session before login');
+          
+          // Small delay to ensure session is fully deleted
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (deleteError) {
-          console.warn('Failed to delete existing session, attempting to continue:', deleteError);
+          console.warn('Failed to delete existing session:', deleteError);
+          
+          // Try to delete all sessions as a fallback
+          try {
+            await retryWithBackoff(() => account.deleteSessions());
+            console.log('Deleted all sessions as fallback');
+            await new Promise(resolve => setTimeout(resolve, 200));
+          } catch (fallbackError) {
+            console.warn('Failed to delete all sessions:', fallbackError);
+          }
         }
       }
       
-      // Create new email/password session
-      return await account.createEmailPasswordSession(email, password);
+      // Create new email/password session with retry logic
+      console.log('Attempting login for:', email);
+      const session = await retryWithBackoff(() => 
+        account.createEmailPasswordSession(email, password),
+        3, // max retries
+        1000 // initial delay
+      );
+      console.log('Login successful');
+      return session;
     } catch (error) {
       console.error('Error logging in:', error);
-      throw error;
+      
+      // Provide user-friendly error messages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as any;
+      
+      if (err?.code === 401 || err?.type === 'user_invalid_credentials') {
+        throw new Error('Invalid email or password');
+      } else if (err?.type === 'user_session_already_exists') {
+        // If session already exists error, try one more time after cleanup
+        try {
+          await retryWithBackoff(() => account.deleteSessions());
+          await new Promise(resolve => setTimeout(resolve, 300));
+          return await retryWithBackoff(() => 
+            account.createEmailPasswordSession(email, password)
+          );
+        } catch (retryError) {
+          throw new Error('Login failed. Please try again.');
+        }
+      } else if (err?.type === 'user_blocked') {
+        throw new Error('Your account has been blocked. Please contact support.');
+      } else if (err?.message?.includes('Failed to fetch') || err?.message?.includes('fetch')) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      } else if (err?.code === 503 || err?.code === 500) {
+        throw new Error('Service temporarily unavailable. Please try again in a moment.');
+      } else if (err?.message) {
+        throw new Error(err.message);
+      }
+      
+      throw new Error('Login failed. Please try again.');
     }
   }
 

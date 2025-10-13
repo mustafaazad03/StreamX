@@ -441,38 +441,116 @@ export default function PollViewPage() {
           </TabsContent>
 
           {/* Settings Tab */}
-          <TabsContent value="settings">
+          <TabsContent value="settings" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Poll Settings</CardTitle>
-                <CardDescription>View your poll configuration</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Poll Settings</CardTitle>
+                    <CardDescription>View and edit your poll configuration</CardDescription>
+                  </div>
+                  <Button asChild>
+                    <Link href={`/dashboard/polls/${pollId}/edit`}>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Edit Settings
+                    </Link>
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Anonymous Responses</p>
-                    <p className="text-sm text-gray-600">
-                      {poll.settings.allowAnonymous ? 'Allowed' : 'Not allowed'}
-                    </p>
+              <CardContent className="space-y-6">
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-900">
+                    💡 <strong>Note:</strong> Only poll settings can be edited. Title, description, and questions are locked to preserve response integrity.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Basic Information (Read-Only)</h3>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Title</p>
+                      <p className="text-sm text-gray-600">{poll.title}</p>
+                    </div>
+                    {poll.description && (
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Description</p>
+                        <p className="text-sm text-gray-600">{poll.description}</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Multiple Responses</p>
-                    <p className="text-sm text-gray-600">
-                      {poll.settings.allowMultipleResponses ? 'Allowed' : 'Not allowed'}
-                    </p>
+                </div>
+
+                <div className="h-px bg-gray-200" />
+
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Response Settings (Editable)</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Anonymous Responses</p>
+                      <p className="text-sm text-gray-600">
+                        {poll.settings.allowAnonymous ? '✓ Allowed' : '✗ Not allowed'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Multiple Responses</p>
+                      <p className="text-sm text-gray-600">
+                        {poll.settings.allowMultipleResponses ? '✓ Allowed' : '✗ Not allowed'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Email Required</p>
+                      <p className="text-sm text-gray-600">
+                        {poll.settings.requireEmail ? '✓ Yes' : '✗ No'}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Show Results</p>
+                      <p className="text-sm text-gray-600 capitalize">
+                        {poll.settings.showResults.replace('-', ' ')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Email Required</p>
-                    <p className="text-sm text-gray-600">
-                      {poll.settings.requireEmail ? 'Yes' : 'No'}
-                    </p>
+                </div>
+
+                <div className="h-px bg-gray-200" />
+
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Questions (Read-Only)</h3>
+                  <div className="space-y-3">
+                    {poll.questions.map((question, index) => (
+                      <div key={question.id} className="p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">
+                              {index + 1}. {question.question}
+                            </p>
+                            {question.description && (
+                              <p className="text-xs text-gray-500 mt-1">{question.description}</p>
+                            )}
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <Badge variant="outline" className="text-xs">
+                                {question.type.replace('-', ' ')}
+                              </Badge>
+                              {question.required && (
+                                <Badge variant="secondary" className="text-xs">Required</Badge>
+                              )}
+                              {question.allowMultipleAnswers && (
+                                <Badge variant="secondary" className="text-xs">Multiple Answers</Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Show Results</p>
-                    <p className="text-sm text-gray-600 capitalize">
-                      {poll.settings.showResults.replace('-', ' ')}
-                    </p>
-                  </div>
+                </div>
+
+                <div className="h-px bg-gray-200" />
+
+                <div className="flex items-center justify-between pt-2">
+                  <p className="text-sm text-gray-500">
+                    Need to update settings? Click "Edit Settings" above to modify poll configuration.
+                  </p>
                 </div>
               </CardContent>
             </Card>

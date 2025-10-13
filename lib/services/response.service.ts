@@ -146,6 +146,32 @@ export class ResponseService {
     }
   }
 
+  // Get user's participated polls with their responses
+  async getUserParticipatedPolls(participantId: string, limit = 100): Promise<{
+    pollId: string;
+    response: Response;
+  }[]> {
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        RESPONSES_COLLECTION_ID,
+        [
+          Query.equal('participantId', participantId),
+          Query.orderDesc('submittedAt'),
+          Query.limit(limit),
+        ]
+      );
+
+      return response.documents.map(doc => ({
+        pollId: doc.pollId as string,
+        response: this.transformResponseDocument(doc),
+      }));
+    } catch (error) {
+      console.error('Error getting user participated polls:', error);
+      return [];
+    }
+  }
+
   // Update poll response count
   private async updatePollResponseCount(pollId: string): Promise<void> {
     try {

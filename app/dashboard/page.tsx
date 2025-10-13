@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, BarChart3, Settings, LogOut, Sparkles, Wand2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, BarChart3, Settings, LogOut, Sparkles, Wand2, FileText, Clock } from 'lucide-react';
 import { usePolls } from '@/hooks/usePolls';
 import { useUserStatistics } from '@/hooks/useAnalytics';
+import { useParticipatedPolls } from '@/hooks/useParticipatedPolls';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -17,6 +19,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const { polls, loading: pollsLoading } = usePolls();
   const { statistics, loading: statsLoading } = useUserStatistics(user?.$id || '');
+  const { participatedPolls, loading: participatedLoading } = useParticipatedPolls(user?.$id);
+  const [activeTab, setActiveTab] = useState('my-polls');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -118,7 +122,7 @@ export default function DashboardPage() {
 
         {/* Actions */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Your Polls</h2>
+          <h2 className="text-2xl font-bold">Your Activity</h2>
           <div className="flex gap-3">
             <Button 
               variant="outline"
@@ -135,8 +139,24 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Polls List */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Tabs for My Polls and Participated Polls */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+            <TabsTrigger value="my-polls" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              My Polls
+              {!pollsLoading && <Badge variant="secondary">{polls.length}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="participated" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Participated
+              {!participatedLoading && <Badge variant="secondary">{participatedPolls.length}</Badge>}
+            </TabsTrigger>
+          </TabsList>
+
+          {/* My Polls Tab */}
+          <TabsContent value="my-polls">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {pollsLoading ? (
             Array(6).fill(0).map((_, i) => (
               <Card key={i}>
@@ -211,7 +231,79 @@ export default function DashboardPage() {
               </Card>
             ))
           )}
-        </div>
+            </div>
+          </TabsContent>
+
+          {/* Participated Polls Tab */}
+          <TabsContent value="participated">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {participatedLoading ? (
+                Array(6).fill(0).map((_, i) => (
+                  <Card key={i}>
+                    <CardHeader>
+                      <Skeleton className="h-6 w-3/4" />
+                      <Skeleton className="h-4 w-1/2 mt-2" />
+                    </CardHeader>
+                    <CardContent>
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-2/3 mt-2" />
+                    </CardContent>
+                  </Card>
+                ))
+              ) : participatedPolls.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="border-dashed border-2">
+                    <CardContent className="py-12 text-center">
+                      <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No participated polls yet</h3>
+                      <p className="text-gray-600">
+                        When you participate in polls, they will appear here
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                participatedPolls.map(({ poll, response, submittedAt }) => (
+                  <Card key={response.$id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => router.push(`/poll/${poll.$id}/results`)}>
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <CardTitle className="text-lg line-clamp-2">{poll.title}</CardTitle>
+                        <Badge variant={poll.isActive ? 'default' : 'secondary'}>
+                          {poll.isActive ? 'Active' : 'Closed'}
+                        </Badge>
+                      </div>
+                      <CardDescription className="line-clamp-1">
+                        {poll.description || 'No description'}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Submitted</span>
+                          <span className="font-semibold">{format(new Date(submittedAt), 'MMM d, yyyy')}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Your Answers</span>
+                          <span className="font-semibold">{response.answers.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600">Total Questions</span>
+                          <span className="font-semibold">{poll.questions.length}</span>
+                        </div>
+                        {response.participantName && (
+                          <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t">
+                            <span>As</span>
+                            <span>{response.participantName}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,11 +12,21 @@ import Link from 'next/link';
 import { Sparkles, Mail, Lock, Github } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, loginWithGoogle, loginWithGithub } = useAuth();
+  const { login, loginWithGoogle, loginWithGithub, user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      router.push(returnUrl);
+    }
+  }, [user, router, returnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +35,10 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success('Welcome back!');
+      // Navigation is handled in AuthContext, but we'll also check returnUrl
+      const finalReturnUrl = localStorage.getItem('returnUrl') || returnUrl;
+      localStorage.removeItem('returnUrl');
+      router.push(finalReturnUrl);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to login');
     } finally {
@@ -152,5 +167,20 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Sparkles className="h-12 w-12 text-blue-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

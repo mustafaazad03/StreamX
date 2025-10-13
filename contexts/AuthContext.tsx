@@ -56,7 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(newSession);
       setUser(currentUser);
       
-      router.push('/dashboard');
     } catch (error) {
       // Re-check auth state in case of error
       await checkAuth();
